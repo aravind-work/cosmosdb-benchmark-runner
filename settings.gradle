@@ -1,0 +1,8 @@
+rootProject.name = 'adobe-cosmosdb-benchmark-parent'
+
+include 'benchmark'
+include 'client-common'
+include 'async-client'
+include 'sync-client'
+include 'rest-client'
+include 'test-data-generator'
