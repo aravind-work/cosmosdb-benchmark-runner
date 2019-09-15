@@ -1,0 +1,17 @@
+OpName, ThreadCount, Throughput(ops/s),  Throughput(+/-), P95(ms), P99(ms), OpCount, ErrorCount, ErrorRate
+
+lookup-single-sync, 1, 729.42, NaN, 1.67, 2.00, 510189, 0, 0.00
+lookup-single-sync, 50, 40262.35, NaN, 1.47, 2.10, 28706975, 0, 0.00
+lookup-single-sync, 100, 69682.23, NaN, 1.86, 4.10, 49662923, 0, 0.00
+lookup-single-sync, 125, 81009.16, NaN, 2.53, 6.37, 56384645, 0, 0.00
+lookup-single-sync, 250, 89921.72, NaN, 5.41, 17.14, 62845832, 0, 0.00
+lookup-single-sync, 300, 89358.84, NaN, 7.25, 24.12, 62005360, 0, 0.00
+
+lookup-single-async, 1, 659.74, NaN, 1.80, 2.11, 471670, 0, 0.00
+lookup-single-async, 50, 32395.38, NaN, 1.80, 2.42, 23345061, 0, 0.00
+lookup-single-async, 100, 54134.88, NaN, 3.22, 5.18, 37266361, 0, 0.00
+lookup-single-async, 125, 54486.74, NaN, 4.45, 7.95, 38483976, 0, 0.00
+lookup-single-async, 250, 63342.66, NaN, 13.14, 22.54, 42745108, 0, 0.00
+lookup-single-async, 300, 64177.47, NaN, 14.47, 24.74, 45406863, 0, 0.00
+lookup-single-async, 400, 62915.07, NaN, 23.66, 37.95, 42994734, 0, 0.00
+lookup-single-async, 500, 64044.00, NaN, 29.92, 46.47, 42813558, 0, 0.00
