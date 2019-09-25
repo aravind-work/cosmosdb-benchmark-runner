@@ -53,13 +53,38 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
     }
 
     @Override
-    public List<SimpleDocument> readDocuments(String collectionName, List<String> docIdList, int batchQueryMaxSize)
+    public SimpleResponse readDocuments(String collectionName, List<String> docIdList, int batchQueryMaxSize)
                                                                                             throws CosmosDbException{
-        return makeSyncMultiple(
+        return makeSync(
             readDocumentBatch(collectionName, docIdList, batchQueryMaxSize)
-                .flatMap(a -> Observable.from(a))
-                .flatMap(a -> Observable.from(a.getResults()))
-                .map(a -> new SimpleDocument(a.getId(), a.getHashMap())));
+                .flatMap(o -> Observable.from(o))
+                .map(f -> {
+                    List<SimpleDocument> docs = f.getResults().stream()
+                            .map(a -> new SimpleDocument(a.getId(), a.getHashMap())).collect(Collectors.toList());
+
+                    int statusCode = 200; //fixme
+
+                    double queryExecTime = f.getQueryMetrics().containsKey(QueryMetricsConstants.TotalQueryExecutionTimeInMs) ?
+                        f.getQueryMetrics().get(QueryMetricsConstants.TotalQueryExecutionTimeInMs)
+                                           .getTotalQueryExecutionTime().toMillis() : 0;
+
+                    return new SimpleResponse(docs, statusCode, f.getRequestCharge(), queryExecTime, f.getActivityId());
+
+                }).toList()
+                .map( respList -> {
+                    List<SimpleDocument> newDocs = new ArrayList<>();
+                    SimpleResponse newResp = new SimpleResponse(newDocs, 500, 0, 0, "");
+                    double ru = 0;
+                    double latency = 0;
+                    respList.stream().forEach(resp -> {
+                        newResp.getDocuments().addAll(resp.documents);
+                        newResp.ruUsed += resp.ruUsed;
+                        newResp.statusCode = resp.statusCode; //fixme
+                        newResp.activityId = newResp.activityId + ", " + resp.activityId;
+                    });
+                    return newResp;
+                })
+        );
     }
 
     Observable<List<FeedResponse<Document>>> readDocumentBatch(String collectionName, List<String> docIds,
@@ -94,16 +119,12 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
                     QUERY_STRING_BATCH,
                     Arrays.asList(COSMOS_DEFAULT_COLUMN_KEY, StringUtils.joinWith(",", tmp.getLeft())),
                     tmp.getRight());
-
-            return client.queryDocuments(cfg.getCollectionLink(collectionName), sqlQuerySpec, generateFeedOptions(partitionId));
+            String sqlQuery = String.format(QUERY_STRING_BATCH, COSMOS_DEFAULT_COLUMN_KEY, queryIds.stream().map(s -> "\"" + s + "\"").collect(Collectors.joining(",")));
+            return client.queryDocuments(cfg.getCollectionLink(collectionName), sqlQuery, generateFeedOptions(partitionId));
         }).collect(Collectors.toList());
 
         return Observable.from(obsList)
-                //execute in parallel
                 .flatMap(task -> task) //todo :: check
-                //wait, until all task are executed
-                //be aware, all your observable should emit onComplemete event
-                //otherwise you will wait forever
                 .toList();
     }
 
@@ -131,11 +152,12 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
     }
 
     @Override
-    public SimpleDocument readDocument(String collectionName, String docId) throws CosmosDbException{
+    public SimpleResponse readDocument(String collectionName, String docId) throws CosmosDbException{
         return makeSync(
                 getDocument(collectionName, docId)
-                    .map(ResourceResponse::getResource)
-                    .map(a -> new SimpleDocument(a.getId(), a.getHashMap())));
+                    .map(r -> new SimpleResponse(new SimpleDocument(r.getResource().getId(),
+                            r.getResource().getHashMap()), r.getStatusCode(), r.getRequestCharge(),
+                            r.getRequestLatency().toMillis(), r.getActivityId())));
     }
 
     public Observable<ResourceResponse<Document>> createDocument(String collectionName, Document doc){
@@ -144,15 +166,16 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
     }
 
     @Override
-    public SimpleDocument createDocument(String collectionName, SimpleDocument sDoc) throws CosmosDbException {
+    public SimpleResponse createDocument(String collectionName, SimpleDocument sDoc) throws CosmosDbException {
         Document doc = new Document();
         doc.setId(sDoc.id);
         sDoc.properties.entrySet().stream().forEach(a -> doc.set(a.getKey(), a.getValue()));
 
         return makeSync(
                 createDocument(collectionName, doc)
-                .map(ResourceResponse::getResource)
-                .map(newDoc -> new SimpleDocument(newDoc.getId(), newDoc.getHashMap())));
+                        .map(r -> new SimpleResponse(new SimpleDocument(r.getResource().getId(),
+                                r.getResource().getHashMap()), r.getStatusCode(), r.getRequestCharge(),
+                                r.getRequestLatency().toMillis(), r.getActivityId())));
     }
 
     @Override
@@ -452,7 +475,7 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
     //todo:: which scheduler
     public static <T> T makeSync(Observable<T> obs) throws CosmosDbException{
         try {
-            return obs.toBlocking().single();
+            return obs.toBlocking().first();
         } catch(Throwable th){
             CosmosDbException ex =  new CosmosDbException("A cosmosDB exception has occurred!", th.getCause(), false, true);
             ex.setStackTrace(th.getStackTrace());
@@ -469,4 +492,16 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
             throw ex;
         }
     }
+
+    public static Document toDocument(SimpleDocument sDoc){
+        Document doc = new Document();
+        doc.setId(sDoc.id);
+        sDoc.properties.entrySet().stream().forEach(entry -> doc.set(entry.getKey(), entry.getValue()));
+        return doc;
+    }
+
+    public static SimpleDocument toSimpleDocument(Document doc){
+        return new SimpleDocument(doc.getId(), doc.getHashMap());
+    }
+
 }

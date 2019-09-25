@@ -2,7 +2,9 @@ package com.adobe.platform.core.identity.services.cosmosdb.client.benchmark;
 
 import com.adobe.platform.core.identity.services.cosmosdb.client.AsyncCosmosDbClient;
 import com.adobe.platform.core.identity.services.cosmosdb.client.CosmosDbConfig;
+import com.adobe.platform.core.identity.services.cosmosdb.client.SimpleResponse;
 import com.adobe.platform.core.identity.services.cosmosdb.util.ThrowingSupplier;
+import com.google.common.util.concurrent.AtomicDouble;
 import com.microsoft.azure.cosmosdb.ConsistencyLevel;
 import com.microsoft.azure.cosmosdb.DocumentCollection;
 import org.openjdk.jmh.results.AggregationPolicy;
@@ -22,20 +24,28 @@ import static com.adobe.platform.core.identity.services.cosmosdb.client.benchmar
 public class AbstractBenchmark {
     private static final Logger logger = LoggerFactory.getLogger(AbstractBenchmark.class.getSimpleName());
     public static final String ERROR_COUNT_RESULT_NAME = "errorCount";
+    public static final String RU_TOTAL = "totalRu";
 
+    private AtomicDouble ruTotal = new com.google.common.util.concurrent.AtomicDouble(0);
     protected AsyncCosmosDbClient client;
-    private AtomicLong errorCount = new AtomicLong(0L); // counter for secondary results
 
     public void commonSetup(CosmosDbConfig cosmosConfig){
         client = new AsyncCosmosDbClient(cosmosConfig);
-        errorCount.set(0L);
     }
 
     protected <T> T performWorkload(ThrowingSupplier<T> workload) {
         try {
-            return workload.get();
+            T result =  workload.get();
+
+            if(result instanceof SimpleResponse){
+                SimpleResponse response = (SimpleResponse) result;
+                double ru = response.getRuUsed();
+                ruTotal.addAndGet(ru);
+            }
+
+            return result;
         } catch (Throwable th) {
-            errorCount.incrementAndGet();
+            addCounterResult(ERROR_COUNT_RESULT_NAME, 1, "ops", AggregationPolicy.SUM);
             logger.error("{} Exception in benchmark method. Msg = {}, Cause = {}", th.getClass().getSimpleName(), th.getMessage(), th.getCause() == null ? "null" : th.getCause().getMessage());
             return null;
         }
@@ -43,7 +53,7 @@ public class AbstractBenchmark {
 
     public void commonTearDown(){
         logger.info("Benchmarking tear down in progress ...");
-        addCounterResult(ERROR_COUNT_RESULT_NAME, errorCount.get(), "ops", AggregationPolicy.SUM);
+        addCounterResult(RU_TOTAL, ruTotal.longValue(), "ru/s", AggregationPolicy.SUM);
 
         try {Thread.sleep(5000);} catch(InterruptedException e){}
         client.getDocumentClient().close();
