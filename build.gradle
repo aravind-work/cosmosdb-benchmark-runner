@@ -10,8 +10,12 @@ allprojects {
     apply plugin: 'java'
     apply plugin: 'idea'
 
+    ext {
+        cosmosVersion = '2.6.1'
+    }
+
     group = 'com.adobe.platform.core.identity.services'
-    version = '1.0-SNAPSHOT'
+    version = "1.1-cosmos-${cosmosVersion}-SNAPSHOT"
 
     sourceCompatibility = 1.8
     targetCompatibility = 1.8
@@ -20,7 +24,6 @@ allprojects {
         jcenter()
         mavenCentral()
     }
-
 }
 
 project(':benchmark') {
@@ -69,7 +72,8 @@ project(':client-common'){
 project(':async-client') {
     dependencies {
         compile project(':client-common')
-        compile "com.microsoft.azure:azure-cosmosdb:2.6.1"
+        compile "com.microsoft.azure:azure-cosmosdb:${cosmosVersion}"
+        compile "io.netty:netty-tcnative-boringssl-static:2.0.25.Final"
     }
 }
 

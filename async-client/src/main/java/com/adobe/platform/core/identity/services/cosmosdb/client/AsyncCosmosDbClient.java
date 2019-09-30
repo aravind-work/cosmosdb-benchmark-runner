@@ -43,8 +43,9 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
         this.cfg = cfg;
         this.client = createDocumentClient(cfg.serviceEndpoint, cfg.masterKey, cfg.connectionMode, cfg.consistencyLevel,
                         cfg.maxPoolSize);
-        this.executor = Executors.newCachedThreadPool(
-                new ThreadFactoryBuilder().setNameFormat("AsyncCosmosDbClient-%d").build());
+        this.executor = Executors.newFixedThreadPool(1000);
+                //Executors.newCachedThreadPool(
+                //new ThreadFactoryBuilder().setNameFormat("AsyncCosmosDbClient-%d").build());
     }
 
     // -------------  WIP
@@ -124,8 +125,8 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
                             Arrays.asList(COSMOS_DEFAULT_COLUMN_KEY, StringUtils.joinWith(",", tmp.getLeft())),
                             tmp.getRight());
                     String sqlQuery = String.format(QUERY_STRING_BATCH, COSMOS_DEFAULT_COLUMN_KEY, queryIds.stream().map(s -> "\"" + s + "\"").collect(Collectors.joining(",")));
-                    return client.queryDocuments(cfg.getCollectionLink(collectionName), sqlQuery, generateFeedOptions(partitionId));
-                }).collect(Collectors.toList());
+                    return client.queryDocuments(cfg.getCollectionLink(collectionName), sqlQuery, generateFeedOptions(partitionId)).toList();
+                }).map(t -> t.flatMapIterable(p -> p)).collect(Collectors.toList());
 
         return Observable.from(obsList)
                 .flatMap(task -> task) //todo :: check
@@ -233,7 +234,8 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
                 getDocument(collectionName, docId)
                     .map(r -> new SimpleResponse(new SimpleDocument(r.getResource().getId(),
                             r.getResource().getHashMap()), r.getStatusCode(), r.getRequestCharge(),
-                            r.getRequestLatency().toMillis(), r.getActivityId())));
+                            0,//r.getRequestLatency().toMillis(),
+                            r.getActivityId())));
     }
 
     public Observable<ResourceResponse<Document>> createDocument(String collectionName, Document doc){
@@ -251,7 +253,8 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
                 createDocument(collectionName, doc)
                         .map(r -> new SimpleResponse(new SimpleDocument(r.getResource().getId(),
                                 r.getResource().getHashMap()), r.getStatusCode(), r.getRequestCharge(),
-                                r.getRequestLatency().toMillis(), r.getActivityId())));
+                                0,//r.getRequestLatency().toMillis(),
+                                r.getActivityId())));
     }
 
     @Override

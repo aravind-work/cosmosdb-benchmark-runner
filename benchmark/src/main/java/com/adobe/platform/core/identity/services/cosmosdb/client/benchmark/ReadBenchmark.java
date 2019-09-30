@@ -38,7 +38,7 @@ public class ReadBenchmark extends AbstractBenchmark{
     }
 
     @Benchmark
-    public SimpleResponse lookupRoutingBatchMultiThread() {
+    public SimpleResponse multiThreadLookupRoutingBatch() {
         return performWorkload(twoTableDataGen.lookupRoutingBatchMultiThread());
     }
 
