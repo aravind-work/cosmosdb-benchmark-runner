@@ -56,8 +56,8 @@ public class AbstractBenchmark {
         addCounterResult(RU_TOTAL, ruTotal.longValue(), "ru/s", AggregationPolicy.SUM);
 
         try {Thread.sleep(5000);} catch(InterruptedException e){}
-        client.getDocumentClient().close();
-        client.getDocumentClient().close();
+        client.close();
+        client.getDocumentClient().close(); //is this needed?
         try {Thread.sleep(10000);} catch(InterruptedException e){}
 
         logger.info("Benchmarking tear down complete.");

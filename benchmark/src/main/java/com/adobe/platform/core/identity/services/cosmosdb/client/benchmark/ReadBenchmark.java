@@ -38,6 +38,11 @@ public class ReadBenchmark extends AbstractBenchmark{
     }
 
     @Benchmark
+    public SimpleResponse lookupRoutingBatchMultiThread() {
+        return performWorkload(twoTableDataGen.lookupRoutingBatchMultiThread());
+    }
+
+    @Benchmark
     public SimpleResponse lookupTwoTableSingle() {
         return performWorkload(twoTableDataGen.lookupTwoTableSingle());
     }
@@ -65,7 +70,7 @@ public class ReadBenchmark extends AbstractBenchmark{
             for (int i = 0; i < iterations; i++) {
                 long startTime = System.currentTimeMillis();
                 //bench.twoTableLookup();
-                bench.lookupRoutingBatch();
+                //bench.lookupRoutingBatchMultiThread();
                 bench.lookupTwoTableBatch();
                 logger.info("Latency = {} ms", (System.currentTimeMillis() - startTime));
             }

@@ -1,6 +1,7 @@
 package com.adobe.platform.core.identity.services.cosmosdb.client;
 
 import com.adobe.platform.core.identity.services.cosmosdb.util.CosmosDbException;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.microsoft.azure.cosmosdb.*;
 import com.microsoft.azure.cosmosdb.internal.HttpConstants;
 import com.microsoft.azure.cosmosdb.internal.directconnectivity.RequestRateTooLargeException;
@@ -12,8 +13,7 @@ import org.slf4j.LoggerFactory;
 import rx.Observable;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -31,6 +31,10 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
     private static final String COSMOS_DEFAULT_COLUMN_KEY = "id";
 
     private static final int MAX_ITEM_COUNT = -1;
+
+    //using for an experiment, todo: remove
+    private final ExecutorService executor;
+
     private final CosmosDbConfig cfg;
     private final AsyncDocumentClient client;
     private final Map<String, DocumentDbPartitionMetadata> partitionMetadataMap = new ConcurrentHashMap<>();
@@ -39,6 +43,8 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
         this.cfg = cfg;
         this.client = createDocumentClient(cfg.serviceEndpoint, cfg.masterKey, cfg.connectionMode, cfg.consistencyLevel,
                         cfg.maxPoolSize);
+        this.executor = Executors.newCachedThreadPool(
+                new ThreadFactoryBuilder().setNameFormat("AsyncCosmosDbClient-%d").build());
     }
 
     // -------------  WIP
@@ -74,8 +80,6 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
                 .map( respList -> {
                     List<SimpleDocument> newDocs = new ArrayList<>();
                     SimpleResponse newResp = new SimpleResponse(newDocs, 500, 0, 0, "");
-                    double ru = 0;
-                    double latency = 0;
                     respList.stream().forEach(resp -> {
                         newResp.getDocuments().addAll(resp.documents);
                         newResp.ruUsed += resp.ruUsed;
@@ -109,23 +113,95 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
             }
 
             return lists.stream().map(l -> Pair.of(e.getKey(), l)); })
+                .map(subQuery -> {
+                    //Issue a queryDocument per item emitted by stream
+                    String partitionId = subQuery.getLeft();
+                    List<String> queryIds = subQuery.getRight();
+
+                    Pair<List<String>, List<SqlParameter>> tmp = createBatchSqlParameters(queryIds, QUERY_NAMED_PARAM_PREFIX);
+                    SqlQuerySpec sqlQuerySpec = createSqlQuerySpec( //todo :: debug
+                            QUERY_STRING_BATCH,
+                            Arrays.asList(COSMOS_DEFAULT_COLUMN_KEY, StringUtils.joinWith(",", tmp.getLeft())),
+                            tmp.getRight());
+                    String sqlQuery = String.format(QUERY_STRING_BATCH, COSMOS_DEFAULT_COLUMN_KEY, queryIds.stream().map(s -> "\"" + s + "\"").collect(Collectors.joining(",")));
+                    return client.queryDocuments(cfg.getCollectionLink(collectionName), sqlQuery, generateFeedOptions(partitionId));
+                }).collect(Collectors.toList());
+
+        return Observable.from(obsList)
+                .flatMap(task -> task) //todo :: check
+                .toList();
+    }
+
+
+    /**
+     * For Experiment, to be removed
+     * @param collectionName
+     * @param docIds
+     * @param batchQueryMaxSize
+     * @return
+     */
+    public SimpleResponse readDocumentsMultiThread(String collectionName, List<String> docIds, int batchQueryMaxSize){
+    // check and update partition metadata map for collection
+        if(!partitionMetadataMap.containsKey(collectionName)){
+            loadPartitionMetadataIfNeeded(collectionName);
+        }
+
+        DocumentDbPartitionMetadata partitionMeta = partitionMetadataMap.get(collectionName); //todo change to name
+        Map<String, Set<String>> groupedIds = partitionMeta.groupIdsByPartitionRangeId(docIds);
+
+        //create tasks
+        List<Callable<List<FeedResponse<Document>>>> callables = groupedIds.entrySet().stream().flatMap(e -> {
+            //Break up keys in each partition into batchQueryMaxSize
+            List<String> collection = new ArrayList<>(e.getValue());
+            List<List<String>> lists = new ArrayList<>();
+
+            for (int i = 0; i < collection.size(); i += batchQueryMaxSize) {
+                int end = Math.min(collection.size(), i + batchQueryMaxSize);
+                lists.add(collection.subList(i, end));
+            }
+
+            return lists.stream().map(l -> Pair.of(e.getKey(), l)); })
         .map(subQuery -> {
             //Issue a queryDocument per item emitted by stream
             String partitionId = subQuery.getLeft();
             List<String> queryIds = subQuery.getRight();
 
-            Pair<List<String>, List<SqlParameter>> tmp = createBatchSqlParameters(queryIds, QUERY_NAMED_PARAM_PREFIX);
-            SqlQuerySpec sqlQuerySpec = createSqlQuerySpec( //todo :: debug
-                    QUERY_STRING_BATCH,
-                    Arrays.asList(COSMOS_DEFAULT_COLUMN_KEY, StringUtils.joinWith(",", tmp.getLeft())),
-                    tmp.getRight());
             String sqlQuery = String.format(QUERY_STRING_BATCH, COSMOS_DEFAULT_COLUMN_KEY, queryIds.stream().map(s -> "\"" + s + "\"").collect(Collectors.joining(",")));
-            return client.queryDocuments(cfg.getCollectionLink(collectionName), sqlQuery, generateFeedOptions(partitionId));
+            Callable<List<FeedResponse<Document>>> task = () -> client.queryDocuments(cfg.getCollectionLink(collectionName), sqlQuery, generateFeedOptions(partitionId)).toList().toBlocking().single();
+            return task;
         }).collect(Collectors.toList());
 
-        return Observable.from(obsList)
-                .flatMap(task -> task) //todo :: check
-                .toList();
+
+            List<SimpleDocument> newDocs = new ArrayList<>();
+            SimpleResponse newResp = new SimpleResponse(newDocs, 500, 0, 0, "");
+
+        //launch all tasks
+        try {
+            executor.invokeAll(callables)
+                .stream()
+                .map(future -> {
+                    try {
+                        return future.get();
+                    }
+                    catch (Exception e) {
+                        throw new IllegalStateException(e);
+                    }
+                })
+                .flatMap(f -> f.stream().map(r -> new SimpleResponse(
+                                        r.getResults().stream().map(d -> toSimpleDocument(d)).collect(Collectors.toList()),
+                                        200,
+                                        r.getRequestCharge(),
+                                        0,
+                                        r.getActivityId())))
+                .forEach( resp -> {
+                        newResp.getDocuments().addAll(resp.documents);
+                        newResp.ruUsed += resp.ruUsed;
+                        newResp.statusCode = resp.statusCode; //fixme
+                        newResp.activityId = newResp.activityId + ", " + resp.activityId; });
+            return newResp;
+        } catch (InterruptedException e) {
+        throw new RuntimeException("Thread interrupted", e);
+        }
     }
 
 
@@ -181,6 +257,7 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
     @Override
     public void close() {
         client.close();
+        executor.shutdownNow();
     }
 
     // -------------  Instance Helpers

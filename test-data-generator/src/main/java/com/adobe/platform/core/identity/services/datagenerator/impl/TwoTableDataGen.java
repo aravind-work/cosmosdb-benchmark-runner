@@ -142,6 +142,30 @@ public class TwoTableDataGen extends AbstractDataGen {
                     MAX_PER_PARTITION_QUERY_BATCH_SIZE);
 
             List<SimpleDocument> docs = response.getDocuments();
+
+
+            docs.stream().forEach(d -> {
+                String graphId = (String) d.properties.get(ROUTING_COLL_PROTO_FIELD);
+                assert (graphId.length() > 16);
+            });
+
+            return response;
+        };
+    }
+
+    // workload-2.1
+    @Override
+    public ThrowingSupplier<SimpleResponse> lookupRoutingBatchMultiThread() {
+        return () -> {
+
+            List<String> queryXids = new ArrayList<>(selectDocIdsAcrossPartitions(BATCH_QUERY_SIZE, idsPerPartition));
+            SimpleResponse response = client.readDocumentsMultiThread(routingCollectionName, queryXids,
+                    MAX_PER_PARTITION_QUERY_BATCH_SIZE);
+
+            List<SimpleDocument> docs = response.getDocuments();
+
+            assert (docs.size() == BATCH_QUERY_SIZE);
+
             docs.stream().forEach(d -> {
                 String graphId = (String) d.properties.get(ROUTING_COLL_PROTO_FIELD);
                 assert (graphId.length() > 16);
@@ -182,6 +206,7 @@ public class TwoTableDataGen extends AbstractDataGen {
 
             SimpleResponse response1 = client.readDocuments(routingCollectionName, queryXids,
                     MAX_PER_PARTITION_QUERY_BATCH_SIZE);
+
             assert(response1.getDocuments().size() == queryXids.size());
 
             Set<String> graphIds = response1.getDocuments().stream()
@@ -191,10 +216,13 @@ public class TwoTableDataGen extends AbstractDataGen {
                     MAX_PER_PARTITION_QUERY_BATCH_SIZE);
 
             assert(response2.getDocuments().size() == graphIds.size());
-            response2.getDocuments().stream().forEach(doc -> {
+
+            Set<String> xids = response2.getDocuments().stream().flatMap(doc -> {
                 String graphDoc = (String) doc.properties.get(GRAPH_COLL_PROTO_FIELD);
                 assert (graphDoc.length() > 1);
-            });
+                return Arrays.asList(graphDoc.split(",")).stream();
+            }).collect(Collectors.toSet());
+            assert(xids.containsAll(queryXids));
 
             return new SimpleResponse(response2.getDocuments(), response2.getStatusCode(),
                     response1.getRuUsed() + response2.getRuUsed(),

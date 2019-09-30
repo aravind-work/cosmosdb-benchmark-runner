@@ -11,10 +11,16 @@ import org.openjdk.jmh.runner.options.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
 public class BenchmarkSuiteRunner {
@@ -26,13 +32,8 @@ public class BenchmarkSuiteRunner {
 
         BenchmarkResultsHolder results = runner.runBenchmarks(cfg);
 
-        if(cfg.summaryCsvFile.equalsIgnoreCase("stdout")){
-            results.writeToStdout();
-        } else {
-            results.writeResultsToCsvFile(cfg.summaryCsvFile);
-        }
+        logger.info("Benchmarks complete.\nBenchmarks Results ..\n" + results.getResultsString() + "\n");
 
-        logger.info("Benchmarks complete.");
         System.exit(0);
     }
 
@@ -66,6 +67,8 @@ public class BenchmarkSuiteRunner {
                             Collection<RunResult> runResults = new Runner(opt).run();
                             assert (!runResults.isEmpty());
                             resultHolder.recordResults(run, threadCount, runResults);
+                            // replace whole file with the full summary
+                            writeResultsToCsvFile(cfg.summaryCsvFile, resultHolder);
                         } catch (Exception e) {
                             throw new RuntimeException(e);
                         }
@@ -73,5 +76,16 @@ public class BenchmarkSuiteRunner {
             });
         });
         return resultHolder;
+    }
+
+    public void writeResultsToCsvFile(String filePath, BenchmarkResultsHolder results) throws IOException {
+        //Get the file reference
+        Path path = Paths.get(filePath);
+
+        try (BufferedWriter writer = Files.newBufferedWriter(path))
+        {
+            writer.write(results.getHeaderLine() + "\n");
+            writer.write(results.getResultsString());
+        }
     }
 }

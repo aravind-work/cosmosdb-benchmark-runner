@@ -17,6 +17,7 @@ import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 import static com.adobe.platform.core.identity.services.cosmosdb.client.benchmark.AbstractBenchmark.ERROR_COUNT_RESULT_NAME;
 import static com.adobe.platform.core.identity.services.cosmosdb.client.benchmark.util.SecondaryResultRecorderProfiler.SECONDARY_RESULT_PREFIX;
@@ -43,12 +44,12 @@ public class BenchmarkResultsHolder {
         }
 
         public String toCsv(){
-            return String.format("%s, %d, %.2f, %.2f, %.2f, %.2f, %d, %d, %.2f\n", operationName, threadCount, throughput, throughputError, p95, p99, opCount, errorCount, (float)errorCount/opCount);
+            return String.format("%s, %d, %.2f, %.2f, %.2f, %.2f, %d, %d, %.2f", operationName, threadCount, throughput, throughputError, p95, p99, opCount, errorCount, (float)errorCount/opCount);
         }
     }
 
-    public String writeHeaderLine(){
-        return String.format("%s, %s, %s, %s, %s, %s, %s, %s, %s\n", "OpName", "ThreadCount", "Throughput(ops/s)", " Throughput(+/-)", "P95(ms)", "P99(ms)", "OpCount", "ErrorCount", "ErrorRate");
+    public String getHeaderLine(){
+        return String.format("%s, %s, %s, %s, %s, %s, %s, %s, %s", "OpName", "ThreadCount", "Throughput(ops/s)", " Throughput(+/-)", "P95(ms)", "P99(ms)", "OpCount", "ErrorCount", "ErrorRate");
     }
 
     public void recordResults(Run run, int threadCount, Collection<RunResult> runResults) {
@@ -70,7 +71,7 @@ public class BenchmarkResultsHolder {
                         Statistics stats = r.getPrimaryResult().getStatistics();
 
                         bResult.p95 = stats.getPercentile(95);
-                        bResult.p99 = stats.getPercentile(95);
+                        bResult.p99 = stats.getPercentile(99);
                     }
 
                     // record secondary results
@@ -84,20 +85,7 @@ public class BenchmarkResultsHolder {
                 });
     }
 
-    public void writeResultsToCsvFile(String filePath) throws IOException {
-        //Get the file reference
-        Path path = Paths.get(filePath);
-
-        try (BufferedWriter writer = Files.newBufferedWriter(path))
-        {
-            writer.write(writeHeaderLine());
-            resultsMap.keySet().forEach(
-                ThrowingConsumer.wrap(
-                    key -> writer.write(resultsMap.get(key).toCsv())));
-        }
-    }
-
-    public void writeToStdout(){
-        resultsMap.keySet().forEach(key -> System.out.println(resultsMap.get(key).toCsv()));
+    public String getResultsString(){
+        return resultsMap.keySet().stream().map(key -> resultsMap.get(key).toCsv()).collect(Collectors.joining("\n"));
     }
 }

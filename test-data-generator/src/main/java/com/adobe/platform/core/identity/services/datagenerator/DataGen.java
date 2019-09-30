@@ -16,7 +16,9 @@ public interface DataGen {
 
     ThrowingSupplier<SimpleResponse> lookupRoutingSingle();
     ThrowingSupplier<SimpleResponse> lookupRoutingBatch();
-    ThrowingSupplier<SimpleResponse> lookupTwoTableSingle();
+    ThrowingSupplier<SimpleResponse> lookupRoutingBatchMultiThread();
+
+        ThrowingSupplier<SimpleResponse> lookupTwoTableSingle();
     ThrowingSupplier<SimpleResponse> lookupTwoTableBatch();
 
     // Factory method
