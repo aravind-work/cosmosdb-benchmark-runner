@@ -1,7 +1,6 @@
 package com.adobe.platform.core.identity.services.cosmosdb.client;
 
 import com.adobe.platform.core.identity.services.cosmosdb.util.CosmosDbException;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.microsoft.azure.cosmosdb.*;
 import com.microsoft.azure.cosmosdb.internal.HttpConstants;
 import com.microsoft.azure.cosmosdb.internal.directconnectivity.RequestRateTooLargeException;
@@ -11,6 +10,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import rx.Observable;
+import rx.schedulers.Schedulers;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -20,17 +20,6 @@ import java.util.stream.IntStream;
 public class AsyncCosmosDbClient implements CosmosDbClient {
 
     private static final Logger logger = LoggerFactory.getLogger(AsyncCosmosDbClient.class.getSimpleName());
-    private static final String COUNT_QUERY = "SELECT VALUE COUNT(1) FROM c";
-    private static final String ROOT_QUERY = "SELECT * FROM root r WHERE r.id=@id";
-    private static final String OFFER_QUERY_STR_FMT = "SELECT * FROM r WHERE r.offerResourceId = '%s'";
-    private static final String QUERY_STRING = "SELECT * FROM root r WHERE r.%s=@id";
-    private static final String QUERY_STRING_BATCH = "SELECT * FROM root r WHERE r.%s IN (%s)";
-
-    private static final String AGGREGATE_PROPERTY = "_aggregate";
-    private static final String QUERY_NAMED_PARAM_PREFIX = "@tempParam_";
-    private static final String COSMOS_DEFAULT_COLUMN_KEY = "id";
-
-    private static final int MAX_ITEM_COUNT = -1;
 
     //using for an experiment, todo: remove
     private final ExecutorService executor;
@@ -43,8 +32,9 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
         this.cfg = cfg;
         this.client = createDocumentClient(cfg.serviceEndpoint, cfg.masterKey, cfg.connectionMode, cfg.consistencyLevel,
                         cfg.maxPoolSize);
-        this.executor = Executors.newCachedThreadPool(
-                new ThreadFactoryBuilder().setNameFormat("AsyncCosmosDbClient-%d").build());
+        this.executor = Executors.newFixedThreadPool(1000);
+                //Executors.newCachedThreadPool(
+                //new ThreadFactoryBuilder().setNameFormat("AsyncCosmosDbClient-%d").build());
     }
 
     // -------------  WIP
@@ -118,14 +108,9 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
                     String partitionId = subQuery.getLeft();
                     List<String> queryIds = subQuery.getRight();
 
-                    Pair<List<String>, List<SqlParameter>> tmp = createBatchSqlParameters(queryIds, QUERY_NAMED_PARAM_PREFIX);
-                    SqlQuerySpec sqlQuerySpec = createSqlQuerySpec( //todo :: debug
-                            QUERY_STRING_BATCH,
-                            Arrays.asList(COSMOS_DEFAULT_COLUMN_KEY, StringUtils.joinWith(",", tmp.getLeft())),
-                            tmp.getRight());
-                    String sqlQuery = String.format(QUERY_STRING_BATCH, COSMOS_DEFAULT_COLUMN_KEY, queryIds.stream().map(s -> "\"" + s + "\"").collect(Collectors.joining(",")));
-                    return client.queryDocuments(cfg.getCollectionLink(collectionName), sqlQuery, generateFeedOptions(partitionId));
-                }).collect(Collectors.toList());
+                    String sqlQuery = String.format(CosmosConstants.QUERY_STRING_BATCH, CosmosConstants.COSMOS_DEFAULT_COLUMN_KEY, queryIds.stream().map(s -> "\"" + s + "\"").collect(Collectors.joining(",")));
+                    return client.queryDocuments(cfg.getCollectionLink(collectionName), sqlQuery, generateFeedOptions(partitionId)).toList();
+                }).map(t -> t.flatMapIterable(p -> p)).collect(Collectors.toList());
 
         return Observable.from(obsList)
                 .flatMap(task -> task) //todo :: check
@@ -166,7 +151,7 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
             String partitionId = subQuery.getLeft();
             List<String> queryIds = subQuery.getRight();
 
-            String sqlQuery = String.format(QUERY_STRING_BATCH, COSMOS_DEFAULT_COLUMN_KEY, queryIds.stream().map(s -> "\"" + s + "\"").collect(Collectors.joining(",")));
+            String sqlQuery = String.format(CosmosConstants.QUERY_STRING_BATCH, CosmosConstants.COSMOS_DEFAULT_COLUMN_KEY, queryIds.stream().map(s -> "\"" + s + "\"").collect(Collectors.joining(",")));
             Callable<List<FeedResponse<Document>>> task = () -> client.queryDocuments(cfg.getCollectionLink(collectionName), sqlQuery, generateFeedOptions(partitionId)).toList().toBlocking().single();
             return task;
         }).collect(Collectors.toList());
@@ -233,7 +218,8 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
                 getDocument(collectionName, docId)
                     .map(r -> new SimpleResponse(new SimpleDocument(r.getResource().getId(),
                             r.getResource().getHashMap()), r.getStatusCode(), r.getRequestCharge(),
-                            r.getRequestLatency().toMillis(), r.getActivityId())));
+                            0,//r.getRequestLatency().toMillis(),
+                            r.getActivityId())));
     }
 
     public Observable<ResourceResponse<Document>> createDocument(String collectionName, Document doc){
@@ -251,7 +237,8 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
                 createDocument(collectionName, doc)
                         .map(r -> new SimpleResponse(new SimpleDocument(r.getResource().getId(),
                                 r.getResource().getHashMap()), r.getStatusCode(), r.getRequestCharge(),
-                                r.getRequestLatency().toMillis(), r.getActivityId())));
+                                0,//r.getRequestLatency().toMillis(),
+                                r.getActivityId())));
     }
 
     @Override
@@ -293,7 +280,7 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
     public Observable<Database> getDatabase(){ return getDatabase(cfg.dbName);}
     public Observable<Database> getDatabase(String dbName) {
         Observable<Database> dbObs = client
-            .queryDatabases(new SqlQuerySpec(ROOT_QUERY,
+            .queryDatabases(new SqlQuerySpec(CosmosConstants.ROOT_QUERY,
                     new SqlParameterCollection(new SqlParameter("@id", dbName))), null)
             .flatMap(feedResponse -> {
                 if (feedResponse.getResults().isEmpty()) {
@@ -314,7 +301,7 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
         //todo :: errorHandling
         Observable<DocumentCollection> docCollObs = client
             .queryCollections(cfg.getDatabaseLink(dbName),
-                    new SqlQuerySpec(ROOT_QUERY,
+                    new SqlQuerySpec(CosmosConstants.ROOT_QUERY,
                             new SqlParameterCollection(new SqlParameter("@id", collectionName))), null)
             .flatMap(feedResponse -> {
                 if (feedResponse.getResults().isEmpty()) {
@@ -372,7 +359,7 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
                 logger.info("Attempting to set RU post collection creation from {} to {} ...", createWithRu,
                         postCreateRu);
 
-                return client.queryOffers(String.format(OFFER_QUERY_STR_FMT,
+                return client.queryOffers(String.format(CosmosConstants.OFFER_QUERY_STR_FMT,
                     response.getResource().getResourceId()), null)
                     .switchMap(page -> Observable.from(page.getResults()))
                     .first()
@@ -414,12 +401,12 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
 
         //todo :: errorHandling
         return client
-            .queryDocuments(cfg.getCollectionLink(collectionName), COUNT_QUERY, options)
+            .queryDocuments(cfg.getCollectionLink(collectionName), CosmosConstants.COUNT_QUERY, options)
             .flatMap(feedResponse -> {
                 if(feedResponse.getResults().isEmpty()){
                     return Observable.just(0L);
                 } else {
-                    return Observable.just(feedResponse.getResults().get(0).getLong(AGGREGATE_PROPERTY));
+                    return Observable.just(feedResponse.getResults().get(0).getLong(CosmosConstants.AGGREGATE_PROPERTY));
                 }
             });
     }
@@ -501,55 +488,7 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
     private static String generateTopNQuery(int limit){ return "SELECT TOP " + limit + " * FROM c"; }
 
 
-    /**
-     * Creates SqlQuerySpec given the inputs
-     *   Formats query based on list of replacements
-     *   Creates SqlCollection based on list of SqlParameters
-     *
-     * @param sqlQuery       - SQL Query to format
-     * @param sqlArgs        - List of Arguments to replace in Query
-     * @param sqlParameters  - List of SqlParameters to substitute into Query
-     * @return SqlQuerySpec
-     */
-    SqlQuerySpec createSqlQuerySpec(String sqlQuery, List<String> sqlArgs, List<SqlParameter> sqlParameters) {
-        String query = String.format(sqlQuery, sqlArgs.toArray());
-        SqlParameterCollection sqlParameterCollection = new SqlParameterCollection(sqlParameters);
-        SqlQuerySpec sqlQuerySpec = new SqlQuerySpec(query, sqlParameterCollection);
-        return sqlQuerySpec;
-    }
-
-    /**
-     * Creates a list of temp parameters to populate into the IN clause of the query based on number of keys
-     *   ex. we have 3 keys to lookup
-     * Select ... FROM .... WHERE r.id IN (%s) =>
-     *       r.id IN (@tempParam_1, @tempParam_2, @tempParam_3)
-     *
-     * Also creates list of SqlParameters to replace temp parameters
-     * ex.
-     * SqlParameter(@tempParam_1, keys(0))
-     * SqlParameter(@tempParam_2, keys(1))
-     * SqlParameter(@tempParam_3, keys(2))
-     */
-    Pair< List<String>,List<SqlParameter> > createBatchSqlParameters(List<String> keys, String paramPrefix) {
-
-        List<String> paramNameList = IntStream
-                .range(0, keys.size())
-                .mapToObj(Integer::toString)
-                .map(i -> paramPrefix + i)
-                .collect(Collectors.toList());
-
-        List<SqlParameter> sqlParameterList = IntStream
-                .range(0, paramNameList.size())
-                .mapToObj(paramNameIdx -> new SqlParameter(paramNameList.get(paramNameIdx), keys.get(paramNameIdx)))
-                .collect(Collectors.toList());
-
-
-        return Pair.of(paramNameList, sqlParameterList);
-    }
-
-
     // -------------  Obs
-    //todo:: which scheduler
     public static <T> T makeSync(Observable<T> obs) throws CosmosDbException{
         try {
             return obs.toBlocking().first();
@@ -570,6 +509,7 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
         }
     }
 
+    // --------------- Helpers
     public static Document toDocument(SimpleDocument sDoc){
         Document doc = new Document();
         doc.setId(sDoc.id);
@@ -581,4 +521,13 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
         return new SimpleDocument(doc.getId(), doc.getHashMap());
     }
 
+    public void verifyCollectionsExist(List<String> collectionNames){
+        logger.info("Verifying that Database/Collections exists ...");
+           Observable.from(collectionNames)
+                .flatMap(c -> getCollection(c))
+                .toList()
+                .subscribeOn(Schedulers.computation())
+                .doOnCompleted(() -> logger.info("Verified that collections exists."))
+                .toBlocking().single();
+    }
 }

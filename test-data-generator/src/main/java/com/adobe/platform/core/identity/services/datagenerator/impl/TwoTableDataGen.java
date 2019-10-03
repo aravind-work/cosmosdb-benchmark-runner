@@ -1,10 +1,6 @@
 package com.adobe.platform.core.identity.services.datagenerator.impl;
 
-import com.adobe.platform.core.identity.services.cosmosdb.client.AsyncCosmosDbClient;
 import com.adobe.platform.core.identity.services.cosmosdb.client.CosmosDbConfig;
-import com.adobe.platform.core.identity.services.cosmosdb.client.SimpleDocument;
-import com.adobe.platform.core.identity.services.cosmosdb.client.SimpleResponse;
-import com.adobe.platform.core.identity.services.cosmosdb.util.ThrowingSupplier;
 import com.adobe.platform.core.identity.services.datagenerator.AbstractDataGen;
 import com.adobe.platform.core.identity.services.datagenerator.DataGenConfig;
 import com.microsoft.azure.cosmosdb.Document;
@@ -13,7 +9,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import rx.schedulers.Schedulers;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -21,35 +20,33 @@ import java.util.stream.Stream;
 public class TwoTableDataGen extends AbstractDataGen {
     Logger logger = LoggerFactory.getLogger(TwoTableDataGen.class.getSimpleName());
 
-    static final String ROUTING_COLL_PROTO_FIELD = "rp";
-    static final String GRAPH_COLL_PROTO_FIELD = "gp";
+    public static final String ROUTING_COLL_PROTO_FIELD = "rp";
+    public static final String GRAPH_COLL_PROTO_FIELD = "gp";
 
-    static final int BATCH_QUERY_SIZE = 1000;
-    static final int MAX_PER_PARTITION_QUERY_BATCH_SIZE = 100;
-
-    // instance level
     private final String routingCollectionName;
     private final String graphCollectionName;
 
-    private List<List<String>> idsPerPartition;
-
-
-    public TwoTableDataGen(AsyncCosmosDbClient client, DataGenConfig datagenConfig, CosmosDbConfig cosmosConfig){
-        super(client, datagenConfig, cosmosConfig);
-        routingCollectionName = datagenConfig.collectionPrefix + "routing";
-        graphCollectionName = datagenConfig.collectionPrefix + "graph";
+    public TwoTableDataGen(DataGenConfig datagenConfig, CosmosDbConfig cosmosConfig){
+        super(datagenConfig, cosmosConfig);
+        routingCollectionName = getRoutingCollectionName(datagenConfig);
+        graphCollectionName = getGraphCollectionName(datagenConfig);
     }
 
     // ---------- Interface methods ----------
 
     @Override
-    public synchronized void workloadSetup(){
-        verifyCollectionsExist(getRequiredCollectionList());
-        this.idsPerPartition = fetchQueryKeys(routingCollectionName);
+    public void shutdown(){
+        client.close();
     }
 
     @Override
-    public synchronized List<String> getRequiredCollectionList() {
+    public List<String> getRequiredCollectionList() {
+        return TwoTableDataGen.getRequiredCollectionListStatic(datagenConfig);
+    }
+
+    public static List<String> getRequiredCollectionListStatic(DataGenConfig datagenConfig) {
+        String routingCollectionName = datagenConfig.collectionPrefix + "routing";
+        String graphCollectionName = datagenConfig.collectionPrefix + "graph";
         return Arrays.asList(routingCollectionName, graphCollectionName);
     }
 
@@ -114,121 +111,11 @@ public class TwoTableDataGen extends AbstractDataGen {
         }
     }
 
-
-    // ---------- workloads ----------
-
-    // workload-1
-    @Override
-    public ThrowingSupplier<SimpleResponse> lookupRoutingSingle(){
-        return () -> {
-
-            String queryXid = selectRandomDocId(idsPerPartition);
-            SimpleResponse response = client.readDocument(routingCollectionName, queryXid);
-            SimpleDocument doc = response.getDocuments().get(0);
-            String graphId = (String) doc.properties.get(ROUTING_COLL_PROTO_FIELD);
-
-            assert (graphId.length() > 16);
-            return response;
-        };
+    public static String getRoutingCollectionName(DataGenConfig cfg){
+        return cfg.collectionPrefix + "routing";
     }
 
-    // workload-2
-    @Override
-    public ThrowingSupplier<SimpleResponse> lookupRoutingBatch() {
-        return () -> {
-
-            List<String> queryXids = new ArrayList<>(selectDocIdsAcrossPartitions(BATCH_QUERY_SIZE, idsPerPartition));
-            SimpleResponse response = client.readDocuments(routingCollectionName, queryXids,
-                    MAX_PER_PARTITION_QUERY_BATCH_SIZE);
-
-            List<SimpleDocument> docs = response.getDocuments();
-
-
-            docs.stream().forEach(d -> {
-                String graphId = (String) d.properties.get(ROUTING_COLL_PROTO_FIELD);
-                assert (graphId.length() > 16);
-            });
-
-            return response;
-        };
+    public static  String getGraphCollectionName(DataGenConfig cfg){
+        return cfg.collectionPrefix + "graph";
     }
-
-    // workload-2.1
-    @Override
-    public ThrowingSupplier<SimpleResponse> lookupRoutingBatchMultiThread() {
-        return () -> {
-
-            List<String> queryXids = new ArrayList<>(selectDocIdsAcrossPartitions(BATCH_QUERY_SIZE, idsPerPartition));
-            SimpleResponse response = client.readDocumentsMultiThread(routingCollectionName, queryXids,
-                    MAX_PER_PARTITION_QUERY_BATCH_SIZE);
-
-            List<SimpleDocument> docs = response.getDocuments();
-
-            assert (docs.size() == BATCH_QUERY_SIZE);
-
-            docs.stream().forEach(d -> {
-                String graphId = (String) d.properties.get(ROUTING_COLL_PROTO_FIELD);
-                assert (graphId.length() > 16);
-            });
-
-            return response;
-        };
-    }
-
-    // workload-3
-    @Override
-    public ThrowingSupplier<SimpleResponse> lookupTwoTableSingle() {
-        return () -> {
-
-            SimpleResponse response1 = lookupRoutingSingle().get();
-            SimpleDocument doc1 = response1.getDocuments().get(0);
-            String graphId = (String) doc1.properties.get(ROUTING_COLL_PROTO_FIELD);
-
-            SimpleResponse response2 = client.readDocument(graphCollectionName, graphId);
-            SimpleDocument doc2 =  response2.getDocuments().get(0);
-            String graphDoc = (String) doc2.properties.get(GRAPH_COLL_PROTO_FIELD);
-
-            assert (graphDoc.length() > 1);
-
-            return new SimpleResponse(doc2, response2.getStatusCode(),
-                    response1.getRuUsed() + response2.getRuUsed(),
-                    response1.getRequestLatencyInMillis() + response2.getRequestLatencyInMillis(),
-                    response2.getActivityId());
-        };
-    }
-
-    // workload-4
-    @Override
-    public ThrowingSupplier<SimpleResponse> lookupTwoTableBatch() {
-        return () -> {
-
-            List<String> queryXids = new ArrayList<>(selectDocIdsAcrossPartitions(BATCH_QUERY_SIZE, idsPerPartition));
-
-            SimpleResponse response1 = client.readDocuments(routingCollectionName, queryXids,
-                    MAX_PER_PARTITION_QUERY_BATCH_SIZE);
-
-            assert(response1.getDocuments().size() == queryXids.size());
-
-            Set<String> graphIds = response1.getDocuments().stream()
-                    .map(d -> (String) d.properties.get(ROUTING_COLL_PROTO_FIELD)).collect(Collectors.toSet());
-
-            SimpleResponse response2  = client.readDocuments(graphCollectionName, new ArrayList<>(graphIds),
-                    MAX_PER_PARTITION_QUERY_BATCH_SIZE);
-
-            assert(response2.getDocuments().size() == graphIds.size());
-
-            Set<String> xids = response2.getDocuments().stream().flatMap(doc -> {
-                String graphDoc = (String) doc.properties.get(GRAPH_COLL_PROTO_FIELD);
-                assert (graphDoc.length() > 1);
-                return Arrays.asList(graphDoc.split(",")).stream();
-            }).collect(Collectors.toSet());
-            assert(xids.containsAll(queryXids));
-
-            return new SimpleResponse(response2.getDocuments(), response2.getStatusCode(),
-                    response1.getRuUsed() + response2.getRuUsed(),
-                    response1.getRequestLatencyInMillis() + response2.getRequestLatencyInMillis(),
-                    response2.getActivityId());
-        };
-    }
-
 }

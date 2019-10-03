@@ -15,6 +15,9 @@ import com.typesafe.config.ConfigFactory;
  *          maxPoolSize = 10000
  *          connectionMode = "Direct"
  *          consistencyLevel = "Eventual"
+ *          requestTimeoutInMillis = 5000
+ *          batchQueryTimeoutInMillis = 5000
+ *          batchQueryExecutorThreadPoolSize = 1000
  *      }
  *  }
  *
@@ -27,6 +30,9 @@ public class CosmosDbConfig {
     public int maxPoolSize;
     public String connectionMode;
     public String consistencyLevel;
+    public int requestTimeoutInMillis;
+    public int batchQueryTimeoutInMillis;
+    public int batchQueryExecutorThreadPoolSize;
 
     private static final String CONFIG_PREFIX = "benchmark.cosmosdb.";
 
@@ -41,6 +47,9 @@ public class CosmosDbConfig {
         this.maxPoolSize = config.getInt(CONFIG_PREFIX + "maxPoolSize");
         this.connectionMode = config.getString(CONFIG_PREFIX + "connectionMode");
         this.consistencyLevel = config.getString(CONFIG_PREFIX + "consistencyLevel");
+        this.requestTimeoutInMillis = config.getInt(CONFIG_PREFIX + "requestTimeoutInMillis");
+        this.batchQueryTimeoutInMillis = config.getInt(CONFIG_PREFIX + "batchQueryTimeoutInMillis");
+        this.batchQueryExecutorThreadPoolSize = config.getInt(CONFIG_PREFIX + "batchQueryExecutorThreadPoolSize");
 
         doValidate();
     }
