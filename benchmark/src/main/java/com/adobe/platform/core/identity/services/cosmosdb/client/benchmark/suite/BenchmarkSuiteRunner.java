@@ -25,6 +25,7 @@ import java.util.stream.Stream;
 
 public class BenchmarkSuiteRunner {
     private static final Logger logger = LoggerFactory.getLogger(BenchmarkSuiteRunner.class.getSimpleName());
+    private static final String COSMOS_CLIENT_TYPE_PARAM = "cosmosClientType";
 
     public static void main(String[] args) throws Exception {
         BenchmarkConfig cfg = new BenchmarkConfig();
@@ -61,6 +62,7 @@ public class BenchmarkSuiteRunner {
                                 .threads(threadCount)
                                 .jvmArgs(cfg.jvmArgs)
                                 .result(cfg.resultsPath + run.name + "_t_" + threadCount + "." + dateStr + "." + ext)
+                                .param(COSMOS_CLIENT_TYPE_PARAM, run.cosmosClientType.toString())
                                 .build();
 
                         try {

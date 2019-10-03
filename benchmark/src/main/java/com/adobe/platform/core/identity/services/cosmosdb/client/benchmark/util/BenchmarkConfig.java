@@ -1,5 +1,6 @@
 package com.adobe.platform.core.identity.services.cosmosdb.client.benchmark.util;
 
+import com.adobe.platform.core.identity.services.cosmosdb.client.CosmosDbClientType;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
@@ -13,11 +14,13 @@ public class BenchmarkConfig {
         public String name;
         public String regex;
         public List<Integer> threads;
+        public CosmosDbClientType cosmosClientType;
 
-        public Run(String name, String regex, List<Integer> threads) {
+        public Run(String name, String regex, List<Integer> threads, CosmosDbClientType cosmosClientType ) {
             this.name = name;
             this.regex = regex;
             this.threads = threads;
+            this.cosmosClientType = cosmosClientType;
         }
 
         @Override
@@ -43,7 +46,10 @@ public class BenchmarkConfig {
         this.summaryCsvFile = config.getString(CONFIG_PREFIX + ".params.summaryCsvFile");
 
         this.runList = config.getConfigList(CONFIG_PREFIX + ".runList").stream()
-                .map(c -> new Run(c.getString("name"), c.getString("regex"), c.getIntList("threads")))
+                .map(c -> {
+                    CosmosDbClientType clientType = CosmosDbClientType.valueOf(c.getString("clientType").toUpperCase());
+                    return new Run(c.getString("name"), c.getString("regex"), c.getIntList("threads"), clientType);
+                })
                 .collect(Collectors.toList());
     }
 

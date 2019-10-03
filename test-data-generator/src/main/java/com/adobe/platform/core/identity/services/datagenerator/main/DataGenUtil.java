@@ -1,6 +1,5 @@
 package com.adobe.platform.core.identity.services.datagenerator.main;
 
-import com.adobe.platform.core.identity.services.cosmosdb.client.AsyncCosmosDbClient;
 import com.adobe.platform.core.identity.services.cosmosdb.client.CosmosDbConfig;
 import com.adobe.platform.core.identity.services.datagenerator.DataGen;
 import com.adobe.platform.core.identity.services.datagenerator.DataGenConfig;
@@ -16,15 +15,10 @@ public class DataGenUtil {
         CosmosDbConfig cosmosConfig = new CosmosDbConfig();
         DataGenConfig dataGenConfig = new DataGenConfig();
 
-        // Create cosmos client
-        AsyncCosmosDbClient client = new AsyncCosmosDbClient(cosmosConfig);
-
         // Run Data Generator
-        DataGen generator = DataGen.getInstance(client, dataGenConfig, cosmosConfig);
+        DataGen generator = DataGen.getInstance(dataGenConfig, cosmosConfig);
         generator.runDataGeneration();
-
-        // Close client
-        client.close();
+        generator.shutdown();
 
         logger.info("Data Generator has finished.");
         System.exit(0);
