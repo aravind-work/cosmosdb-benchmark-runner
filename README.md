@@ -66,3 +66,60 @@ The following are the workloads that have been modelled
 
 ## Run benchmarks
 `java -cp ./benchmark-1.2-cosmos-2.4.3-SNAPSHOT-shadow.jar com.adobe.platform.core.identity.services.cosmosdb.client.benchmark.suite.BenchmarkSuiteRunner | tee benchmark.out`
+
+## Results of benchmark runs
+### Single Lookup workload
+#### Sync SDK v2.4.0 vs Async SDK v2.4.3
+refer to /benchmark/results/2.4.3/lookup-single
+```
+OpName, ThreadCount, Throughput(ops/s),  Throughput(+/-), P95(ms), P99(ms), OpCount, ErrorCount, ErrorRate
+
+lookup-single-sync, 1, 729.42, NaN, 1.67, 2.00, 510189, 0, 0.00
+lookup-single-sync, 50, 40262.35, NaN, 1.47, 2.10, 28706975, 0, 0.00
+lookup-single-sync, 100, 69682.23, NaN, 1.86, 4.10, 49662923, 0, 0.00
+lookup-single-sync, 125, 81009.16, NaN, 2.53, 6.37, 56384645, 0, 0.00
+lookup-single-sync, 250, 89921.72, NaN, 5.41, 17.14, 62845832, 0, 0.00
+lookup-single-sync, 300, 89358.84, NaN, 7.25, 24.12, 62005360, 0, 0.00
+
+lookup-single-async, 1, 659.74, NaN, 1.80, 2.11, 471670, 0, 0.00
+lookup-single-async, 50, 32395.38, NaN, 1.80, 2.42, 23345061, 0, 0.00
+lookup-single-async, 100, 54134.88, NaN, 3.22, 5.18, 37266361, 0, 0.00
+lookup-single-async, 125, 54486.74, NaN, 4.45, 7.95, 38483976, 0, 0.00
+lookup-single-async, 250, 63342.66, NaN, 13.14, 22.54, 42745108, 0, 0.00
+lookup-single-async, 300, 64177.47, NaN, 14.47, 24.74, 45406863, 0, 0.00
+lookup-single-async, 400, 62915.07, NaN, 23.66, 37.95, 42994734, 0, 0.00
+lookup-single-async, 500, 64044.00, NaN, 29.92, 46.47, 42813558, 0, 0.00
+```
+#### Async SDK v2.6.1
+refer to /benchmark/results/2.6.1/lookup-single
+```
+todo
+```
+### Batch Lookup workload
+#### Sync SDK v2.4.0 vs Async SDK v2.4.3 
+refer to /benchmark/results/2.4.3/lookup-batch/benchmark-results-09-30-2019-cosmos-v2.4.3.csv
+```
+OpName, ThreadCount, Throughput(ops/s),  Throughput(+/-), P95(ms), P99(ms), OpCount, ErrorCount, ErrorRate
+
+lookup-batch, 1, 30.15, NaN, 41.16, 56.72, 21094, 0, 0.00
+lookup-batch, 2, 51.31, NaN, 47.53, 258.21, 36728, 0, 0.00
+lookup-batch, 4, 108.01, NaN, 53.67, 66.17, 77079, 0, 0.00
+lookup-batch, 8, 148.67, NaN, 78.12, 95.42, 107124, 0, 0.00
+lookup-batch, 16, 149.77, NaN, 143.39, 254.80, 106294, 0, 0.00
+lookup-batch, 32, 109.37, NaN, 517.47, 561.55, 75882, 0, 0.00
+lookup-batch, 64, 73.40, NaN, 1119.88, 1210.06, 51717, 0, 0.00
+lookup-batch, 128, 37.81, NaN, 7902.07, 9279.48, 23137, 0, 0.00
+
+multi-thread-lookup-batch, 1, 64.15, NaN, 22.52, 28.40, 46599, 0, 0.00
+multi-thread-lookup-batch, 2, 106.13, NaN, 29.36, 39.52, 75556, 0, 0.00
+multi-thread-lookup-batch, 4, 137.14, NaN, 43.91, 55.04, 98971, 0, 0.00
+multi-thread-lookup-batch, 8, 145.50, NaN, 79.82, 90.70, 106263, 0, 0.00
+multi-thread-lookup-batch, 16, 145.81, NaN, 154.66, 176.42, 101407, 0, 0.00
+multi-thread-lookup-batch, 32, 132.65, NaN, 299.37, 410.52, 95952, 0, 0.00
+multi-thread-lookup-batch, 64, 127.20, NaN, 676.33, 727.71, 88310, 0, 0.00
+multi-thread-lookup-batch, 128, 121.05, NaN, 1254.10, 1327.50, 85268, 0, 0.00
+```
+#### Async SDK v2.6.1
+```
+todo
+```
