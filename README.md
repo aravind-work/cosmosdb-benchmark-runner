@@ -67,6 +67,10 @@ The following are the workloads that have been modelled
 ## Run benchmarks
 `java -cp ./benchmark-1.2-cosmos-2.4.3-SNAPSHOT-shadow.jar com.adobe.platform.core.identity.services.cosmosdb.client.benchmark.suite.BenchmarkSuiteRunner | tee benchmark.out`
 
+## Debug in IDE
+- Run this main method `com.adobe.platform.core.identity.services.cosmosdb.client.benchmark.jmh.ReadBenchmark.main`
+- This will simply exercise readDocument(..)
+
 ## Results of benchmark runs
 ### Single Lookup workload
 #### Sync SDK v2.4.0 vs Async SDK v2.4.3
@@ -91,9 +95,45 @@ lookup-single-async, 400, 62915.07, NaN, 23.66, 37.95, 42994734, 0, 0.00
 lookup-single-async, 500, 64044.00, NaN, 29.92, 46.47, 42813558, 0, 0.00
 ```
 #### Async SDK v2.6.1
-refer to /benchmark/results/2.6.1/lookup-single
 ```
-todo
+OpName, ThreadCount, Throughput(ops/s),  Throughput(+/-), P95(ms), P99(ms), OpCount, ErrorCount, ErrorRate
+lookup-single-async-cosmos-v2.6.1, 1, 782.71, NaN, 1.51, 1.83, 557409, 0, 0.00
+```
+Benchmark hangs for threadCount > 1, the following messages are logged
+```
+2019-10-03 18:38:16,046       [CosmosEventLoop-5-18] WARN  com.microsoft.azure.cosmosdb.internal.directconnectivity.GoneAndRetryWithRetryPolicy - Received gone exception, will retry, GoneException{error=null, resourceAddress='rntbd://cdb-ms-prod-eastus2-fd14.documents.azure.com:16748/apps/16d6d56e-e73d-4069-98f5-2e677328a7d1/services/1e12e422-b053-47c7-9c03-c5a1b1d73024/partitions/c0ec71ae-5880-40a5
+-a9e6-d968b93c7620/replicas/132142763239106974p/', statusCode=410, message=ChannelHandlerContext(RntbdRequestManager#0, [id: 0x3f515e5b, L:/172.19.0.4:57232 - R:cdb-ms-prod-eastus2-fd14.documents.azure.com/104.208.231.8:16748]) closed exceptionally with 3 pending requests, getCauseInfo=[class: class java.lang.IllegalStateException, message: null], responseHeaders={}, requestHeaders={authorization=ty
+pe%3Dmaster%26ver%3D1.0%26sig%3DP2mCg7rATURTyPNA7Fr7Ka%2BU8%2F9DqT2sQ0UUbA%2BkjEg%3D, Accept=application/json, x-ms-date=Thu, 03 Oct 2019 18:38:16 GMT, x-ms-documentdb-collection-rid=j7M8ANVKp0o=, x-ms-client-retry-attempt-count=0, x-ms-documentdb-partitionkey=["2f60d4c0-d7f0-47d9-983c-b6e23d2b20d3"], x-ms-remaining-time-in-ms-on-client=60000, x-ms-consistency-level=Eventual}}
+2019-10-03 18:38:16,046       [CosmosEventLoop-5-18] WARN  com.microsoft.azure.cosmosdb.internal.directconnectivity.GoneAndRetryWithRetryPolicy - Received gone exception, will retry, GoneException{error=null, resourceAddress='rntbd://cdb-ms-prod-eastus2-fd14.documents.azure.com:16748/apps/16d6d56e-e73d-4069-98f5-2e677328a7d1/services/1e12e422-b053-47c7-9c03-c5a1b1d73024/partitions/c0ec71ae-5880-40a5
+-a9e6-d968b93c7620/replicas/132142763239106974p/', statusCode=410, message=ChannelHandlerContext(RntbdRequestManager#0, [id: 0x3f515e5b, L:/172.19.0.4:57232 - R:cdb-ms-prod-eastus2-fd14.documents.azure.com/104.208.231.8:16748]) closed exceptionally with 3 pending requests, getCauseInfo=[class: class java.lang.IllegalStateException, message: null], responseHeaders={}, requestHeaders={authorization=ty
+pe%3Dmaster%26ver%3D1.0%26sig%3D3Da8P%2FHJVWUqrlkeP8jW4mae%2FKf65eqt9Zo9%2BmJKBk8%3D, Accept=application/json, x-ms-date=Thu, 03 Oct 2019 18:38:16 GMT, x-ms-documentdb-collection-rid=j7M8ANVKp0o=, x-ms-client-retry-attempt-count=0, x-ms-documentdb-partitionkey=["f1e76dd8-a971-4baa-8f13-7f2c864d1fb0"], x-ms-remaining-time-in-ms-on-client=60000, x-ms-consistency-level=Eventual}}
+2019-10-03 18:38:16,409       [CosmosEventLoop-5-2] ERROR AsyncCosmosDbClient - Error in getDocument()
+RequestTimeoutException{error=null, resourceAddress='rntbd://cdb-ms-prod-eastus2-fd6.documents.azure.com:14044/apps/3956b2e2-7d8a-4c54-b795-671c83ed6192/services/819269b8-9cf6-467c-804a-d6bdcdb860f6/partitions/f402a164-a189-4a98-a690-47136496a0b2/replicas/132142461299436313s/', statusCode=408, message=Request timeout interval (60,000 ms) elapsed, 
+RequestStartTime: "03 Oct 2019 18:37:16.394", RequestEndTime: "03 Oct 2019 18:38:16.408", Duration: 60014 ms, Number of regions attempted: 1
+StoreResponseStatistics{requestResponseTime="03 Oct 2019 18:38:16.408", storeResult=storePhysicalAddress: null, lsn: -1, globalCommittedLsn: -1, partitionKeyRangeId: null, isValid: true, statusCode: 408, subStatusCode: 0, isGone: false, isNotFound: false, isInvalidPartition: false, requestCharge: 0.0, itemLSN: -1, sessionToken: null, exception: Request timeout interval (60,000 ms) elapsed, requestRe
+sourceType=Document, requestOperationType=Read}
+, getCauseInfo=null, responseHeaders={}, requestHeaders={authorization=type%3Dmaster%26ver%3D1.0%26sig%3DipjgCZ%2B%2BkRCr3cdUQr39lyTkQkQ8Oevj0xI%2BOIKOXNE%3D, Accept=application/json, x-ms-date=Thu, 03 Oct 2019 18:37:16 GMT, x-ms-documentdb-collection-rid=j7M8ANVKp0o=, x-ms-client-retry-attempt-count=0, x-ms-documentdb-partitionkey=["919af32a-705a-4077-a6c7-667d23813b03"], x-ms-remaining-time-in-ms-
+on-client=60000, x-ms-consistency-level=Eventual}}
+        at com.microsoft.azure.cosmosdb.internal.directconnectivity.rntbd.RntbdRequestRecord.expire(RntbdRequestRecord.java:84)
+        at io.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java:163)
+        at io.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:416)
+        at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:515)
+        at io.netty.util.concurrent.SingleThreadEventExecutor$5.run(SingleThreadEventExecutor.java:918)
+        at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+        at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+        at java.lang.Thread.run(Thread.java:748)
+2019-10-03 18:38:16,410       [CosmosEventLoop-5-24] WARN  com.microsoft.azure.cosmosdb.internal.directconnectivity.GoneAndRetryWithRetryPolicy - Received gone exception, will retry, GoneException{error=null, resourceAddress='rntbd://cdb-ms-prod-eastus2-fd14.documents.azure.com:14115/apps/506e03a2-1c37-4e4c-bd59-9369bbf4d4b8/services/df5ca914-7ade-4fbd-b488-2543f84b695d/partitions/1f999bf9-3451-4de7
+-accb-72721fda4abb/replicas/132142763257700618s/', statusCode=410, message=ChannelHandlerContext(RntbdRequestManager#0, [id: 0x748bbb93, L:/172.19.0.4:57992 - R:cdb-ms-prod-eastus2-fd14.documents.azure.com/104.208.231.8:14115]) closed exceptionally with 1 pending requests, getCauseInfo=[class: class java.lang.IllegalStateException, message: null], responseHeaders={}, requestHeaders={authorization=ty
+pe%3Dmaster%26ver%3D1.0%26sig%3D9Gb05907BrPiFt%2BP39nw2XodyTxLaBocyee8Xuegwwo%3D, Accept=application/json, x-ms-date=Thu, 03 Oct 2019 18:38:16 GMT, x-ms-documentdb-collection-rid=j7M8ANVKp0o=, x-ms-client-retry-attempt-count=0, x-ms-documentdb-partitionkey=["8bd3d587-456f-45eb-9204-fdadc1f4e58d"], x-ms-remaining-time-in-ms-on-client=60000, x-ms-consistency-level=Eventual}}
+2019-10-03 18:38:16,410       [com.adobe.platform.core.identity.services.cosmosdb.client.benchmark.jmh.ReadBenchmark.lookupRoutingSingle-jmh-worker-39] ERROR AbstractBenchmark - CosmosDbException Exception in benchmark method. Msg = A cosmosDB exception has occurred!, Cause = Request timeout interval (60,000 ms) elapsed, 
+RequestStartTime: "03 Oct 2019 18:37:16.394", RequestEndTime: "03 Oct 2019 18:38:16.408", Duration: 60014 ms, Number of regions attempted: 1
+StoreResponseStatistics{requestResponseTime="03 Oct 2019 18:38:16.408", storeResult=storePhysicalAddress: null, lsn: -1, globalCommittedLsn: -1, partitionKeyRangeId: null, isValid: true, statusCode: 408, subStatusCode: 0, isGone: false, isNotFound: false, isInvalidPartition: false, requestCharge: 0.0, itemLSN: -1, sessionToken: null, exception: Request timeout interval (60,000 ms) elapsed, requestRe
+sourceType=Document, requestOperationType=Read}
+
+2019-10-03 18:38:17,506       [CosmosEventLoop-5-16] WARN  com.microsoft.azure.cosmosdb.internal.directconnectivity.GoneAndRetryWithRetryPolicy - Received gone exception, will retry, GoneException{error=null, resourceAddress='rntbd://cdb-ms-prod-eastus2-fd6.documents.azure.com:14047/apps/d46d193b-507c-4102-9c2d-41d3997eb75e/services/6fe4eab3-c60a-4d12-ad9d-718b1db9910d/partitions/59e24c12-a30d-481a-
+a82f-7dcf6e258b17/replicas/132144188441640655s/', statusCode=410, message=ChannelHandlerContext(RntbdRequestManager#0, [id: 0xd5a031f1, L:/172.19.0.4:58956 - R:cdb-ms-prod-eastus2-fd6.documents.azure.com/104.208.231.0:14047]) closed exceptionally with 2 pending requests, getCauseInfo=[class: class java.lang.IllegalStateException, message: null], responseHeaders={}, requestHeaders={authorization=type
+%3Dmaster%26ver%3D1.0%26sig%3DrbcKmQsWk48TvvXXaqY7uvWz2BT3ReHuI%2B35MeZpq%2F0%3D, Accept=application/json, x-ms-date=Thu, 03 Oct 2019 18:38:17 GMT, x-ms-documentdb-collection-rid=j7M8ANVKp0o=, x-ms-client-retry-attempt-count=0, x-ms-documentdb-partitionkey=["330d5cfd-923e-4657-b253-713dd7695a0c"], x-ms-remaining-time-in-ms-on-client=60000, x-ms-consistency-level=Eventual}}
+
 ```
 ### Batch Lookup workload
 #### Sync SDK v2.4.0 vs Async SDK v2.4.3 
@@ -101,25 +141,25 @@ refer to /benchmark/results/2.4.3/lookup-batch/benchmark-results-09-30-2019-cosm
 ```
 OpName, ThreadCount, Throughput(ops/s),  Throughput(+/-), P95(ms), P99(ms), OpCount, ErrorCount, ErrorRate
 
-lookup-batch, 1, 30.15, NaN, 41.16, 56.72, 21094, 0, 0.00
-lookup-batch, 2, 51.31, NaN, 47.53, 258.21, 36728, 0, 0.00
-lookup-batch, 4, 108.01, NaN, 53.67, 66.17, 77079, 0, 0.00
-lookup-batch, 8, 148.67, NaN, 78.12, 95.42, 107124, 0, 0.00
-lookup-batch, 16, 149.77, NaN, 143.39, 254.80, 106294, 0, 0.00
-lookup-batch, 32, 109.37, NaN, 517.47, 561.55, 75882, 0, 0.00
-lookup-batch, 64, 73.40, NaN, 1119.88, 1210.06, 51717, 0, 0.00
-lookup-batch, 128, 37.81, NaN, 7902.07, 9279.48, 23137, 0, 0.00
+# Combine all observable into one and call .toBlocking().single()
+lookup-batch-async, 1, 30.15, NaN, 41.16, 56.72, 21094, 0, 0.00
+lookup-batch-async, 2, 51.31, NaN, 47.53, 258.21, 36728, 0, 0.00
+lookup-batch-async, 4, 108.01, NaN, 53.67, 66.17, 77079, 0, 0.00
+lookup-batch-async, 8, 148.67, NaN, 78.12, 95.42, 107124, 0, 0.00
+lookup-batch-async, 16, 149.77, NaN, 143.39, 254.80, 106294, 0, 0.00
+lookup-batch-async, 32, 109.37, NaN, 517.47, 561.55, 75882, 0, 0.00
+lookup-batch-async, 64, 73.40, NaN, 1119.88, 1210.06, 51717, 0, 0.00
+lookup-batch-async, 128, 37.81, NaN, 7902.07, 9279.48, 23137, 0, 0.00
 
-multi-thread-lookup-batch, 1, 64.15, NaN, 22.52, 28.40, 46599, 0, 0.00
-multi-thread-lookup-batch, 2, 106.13, NaN, 29.36, 39.52, 75556, 0, 0.00
-multi-thread-lookup-batch, 4, 137.14, NaN, 43.91, 55.04, 98971, 0, 0.00
-multi-thread-lookup-batch, 8, 145.50, NaN, 79.82, 90.70, 106263, 0, 0.00
-multi-thread-lookup-batch, 16, 145.81, NaN, 154.66, 176.42, 101407, 0, 0.00
-multi-thread-lookup-batch, 32, 132.65, NaN, 299.37, 410.52, 95952, 0, 0.00
-multi-thread-lookup-batch, 64, 127.20, NaN, 676.33, 727.71, 88310, 0, 0.00
-multi-thread-lookup-batch, 128, 121.05, NaN, 1254.10, 1327.50, 85268, 0, 0.00
+# Use wrap each observable in a callable and submit on a fixed size executor with 1000 threads 
+multi-thread-lookup-batch-async, 1, 64.15, NaN, 22.52, 28.40, 46599, 0, 0.00
+multi-thread-lookup-batch-async, 2, 106.13, NaN, 29.36, 39.52, 75556, 0, 0.00
+multi-thread-lookup-batch-async, 4, 137.14, NaN, 43.91, 55.04, 98971, 0, 0.00
+multi-thread-lookup-batch-async, 8, 145.50, NaN, 79.82, 90.70, 106263, 0, 0.00
+multi-thread-lookup-batch-async, 16, 145.81, NaN, 154.66, 176.42, 101407, 0, 0.00
+multi-thread-lookup-batch-async, 32, 132.65, NaN, 299.37, 410.52, 95952, 0, 0.00
+multi-thread-lookup-batch-async, 64, 127.20, NaN, 676.33, 727.71, 88310, 0, 0.00
+multi-thread-lookup-batch-async, 128, 121.05, NaN, 1254.10, 1327.50, 85268, 0, 0.00
 ```
 #### Async SDK v2.6.1
-```
 todo
-```
