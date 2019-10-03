@@ -62,10 +62,10 @@ The following are the workloads that have been modelled
     - Look for the following block and modify as needed. :wq to save file and :q! to exit Vim zip browser.
 
 ## Generate test collection and data
-`java -cp ./benchmark-1.2-cosmos-2.4.3-SNAPSHOT-shadow.jar com.adobe.platform.core.identity.services.datagenerator.main.DataGenUtil`
+`java -cp benchmark/build/libs/benchmark-1.2-cosmos-2.4.3-SNAPSHOT-shadow.jar com.adobe.platform.core.identity.services.datagenerator.main.DataGenUtil`
 
 ## Run benchmarks
-`java -cp ./benchmark-1.2-cosmos-2.4.3-SNAPSHOT-shadow.jar com.adobe.platform.core.identity.services.cosmosdb.client.benchmark.suite.BenchmarkSuiteRunner | tee benchmark.out`
+`java -cp benchmark/build/libs/benchmark-1.2-cosmos-2.4.3-SNAPSHOT-shadow.jar com.adobe.platform.core.identity.services.cosmosdb.client.benchmark.suite.BenchmarkSuiteRunner | tee benchmark.out`
 
 ## Debug in IDE
 - Run this main method `com.adobe.platform.core.identity.services.cosmosdb.client.benchmark.jmh.ReadBenchmark.main`
