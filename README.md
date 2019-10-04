@@ -75,30 +75,31 @@ The following are the workloads that have been modelled
 ### Single Lookup workload
 #### Sync SDK v2.4.0 vs Async SDK v2.4.3
 refer to /benchmark/results/2.4.3/lookup-single
-```
-OpName, ThreadCount, Throughput(ops/s),  Throughput(+/-), P95(ms), P99(ms), OpCount, ErrorCount, ErrorRate
 
-lookup-single-sync, 1, 729.42, NaN, 1.67, 2.00, 510189, 0, 0.00
-lookup-single-sync, 50, 40262.35, NaN, 1.47, 2.10, 28706975, 0, 0.00
-lookup-single-sync, 100, 69682.23, NaN, 1.86, 4.10, 49662923, 0, 0.00
-lookup-single-sync, 125, 81009.16, NaN, 2.53, 6.37, 56384645, 0, 0.00
-lookup-single-sync, 250, 89921.72, NaN, 5.41, 17.14, 62845832, 0, 0.00
-lookup-single-sync, 300, 89358.84, NaN, 7.25, 24.12, 62005360, 0, 0.00
+|OpName             |ThreadCount|Throughput(ops/s)|Throughput(+/-)|P95(ms)|P99(ms)|OpCount  |ErrorCount|ErrorRate|
+|-------------------|-----------|-----------------|---------------|-------|-------|---------|----------|---------|
+|lookup-single-sync | 1         | 729.42          | NaN           | 1.67  | 2.00  | 510189  | 0        | 0.00    |
+|lookup-single-sync | 50        | 40262.35        | NaN           | 1.47  | 2.10  | 28706975| 0        | 0.00    |
+|lookup-single-sync | 100       | 69682.23        | NaN           | 1.86  | 4.10  | 49662923| 0        | 0.00    |
+|lookup-single-sync | 125       | 81009.16        | NaN           | 2.53  | 6.37  | 56384645| 0        | 0.00    |
+|lookup-single-sync | 250       | 89921.72        | NaN           | 5.41  | 17.14 | 62845832| 0        | 0.00    |
+|lookup-single-sync | 300       | 89358.84        | NaN           | 7.25  | 24.12 | 62005360| 0        | 0.00    |
+|                   |           |                 |               |       |       |         |          |         |      
+|lookup-single-async| 1         | 659.74          | NaN           | 1.80  | 2.11  | 471670  | 0        | 0.00    |
+|lookup-single-async| 50        | 32395.38        | NaN           | 1.80  | 2.42  | 23345061| 0        | 0.00    |
+|lookup-single-async| 100       | 54134.88        | NaN           | 3.22  | 5.18  | 37266361| 0        | 0.00    |
+|lookup-single-async| 125       | 54486.74        | NaN           | 4.45  | 7.95  | 38483976| 0        | 0.00    |
+|lookup-single-async| 250       | 63342.66        | NaN           | 13.14 | 22.54 | 42745108| 0        | 0.00    |
+|lookup-single-async| 300       | 64177.47        | NaN           | 14.47 | 24.74 | 45406863| 0        | 0.00    |
+|lookup-single-async| 400       | 62915.07        | NaN           | 23.66 | 37.95 | 42994734| 0        | 0.00    |
+|lookup-single-async| 500       | 64044.00        | NaN           | 29.92 | 46.47 | 42813558| 0        | 0.00    |
 
-lookup-single-async, 1, 659.74, NaN, 1.80, 2.11, 471670, 0, 0.00
-lookup-single-async, 50, 32395.38, NaN, 1.80, 2.42, 23345061, 0, 0.00
-lookup-single-async, 100, 54134.88, NaN, 3.22, 5.18, 37266361, 0, 0.00
-lookup-single-async, 125, 54486.74, NaN, 4.45, 7.95, 38483976, 0, 0.00
-lookup-single-async, 250, 63342.66, NaN, 13.14, 22.54, 42745108, 0, 0.00
-lookup-single-async, 300, 64177.47, NaN, 14.47, 24.74, 45406863, 0, 0.00
-lookup-single-async, 400, 62915.07, NaN, 23.66, 37.95, 42994734, 0, 0.00
-lookup-single-async, 500, 64044.00, NaN, 29.92, 46.47, 42813558, 0, 0.00
-```
 #### Async SDK v2.6.1
-```
-OpName, ThreadCount, Throughput(ops/s),  Throughput(+/-), P95(ms), P99(ms), OpCount, ErrorCount, ErrorRate
-lookup-single-async-cosmos-v2.6.1, 1, 782.71, NaN, 1.51, 1.83, 557409, 0, 0.00
-```
+
+|OpName                                  |ThreadCount|Throughput(ops/s)|Throughput(+/-)|P95(ms)|P99(ms)|OpCount  |ErrorCount|ErrorRate|
+|----------------------------------------|-----------|-----------------|---------------|-------|-------|---------|----------|---------|
+|lookup-single-async-cosmos-v2.6.1       | 1         | 782.71          | NaN           | 1.51  | 1.83  | 557409  | 0        | 0.00    |
+
 Benchmark hangs for threadCount > 1, the following messages are logged
 ```
 2019-10-03 18:38:16,046       [CosmosEventLoop-5-18] WARN  com.microsoft.azure.cosmosdb.internal.directconnectivity.GoneAndRetryWithRetryPolicy - Received gone exception, will retry, GoneException{error=null, resourceAddress='rntbd://cdb-ms-prod-eastus2-fd14.documents.azure.com:16748/apps/16d6d56e-e73d-4069-98f5-2e677328a7d1/services/1e12e422-b053-47c7-9c03-c5a1b1d73024/partitions/c0ec71ae-5880-40a5
@@ -135,3 +136,24 @@ a82f-7dcf6e258b17/replicas/132144188441640655s/', statusCode=410, message=Channe
 %3Dmaster%26ver%3D1.0%26sig%3DrbcKmQsWk48TvvXXaqY7uvWz2BT3ReHuI%2B35MeZpq%2F0%3D, Accept=application/json, x-ms-date=Thu, 03 Oct 2019 18:38:17 GMT, x-ms-documentdb-collection-rid=j7M8ANVKp0o=, x-ms-client-retry-attempt-count=0, x-ms-documentdb-partitionkey=["330d5cfd-923e-4657-b253-713dd7695a0c"], x-ms-remaining-time-in-ms-on-client=60000, x-ms-consistency-level=Eventual}}
 
 ```
+
+### Batch lookup workload
+#### Sync SDK v2.4.0 vs Async SDK v2.4.3
+
+|OpName             |ThreadCount|Throughput(ops/s)|Throughput(+/-)|P95(ms)|P99(ms)|OpCount  |ErrorCount|ErrorRate|
+|-------------------|-----------|-----------------|---------------|-------|-------|---------|----------|---------|
+|lookup-batch-sync  | 1         | 65.55           | NaN           | 20.48 | 172.60| 45489   | 0        | 0.00    |
+|lookup-batch-sync  | 4         | 138.54          | NaN           | 61.08 | 143.89| 102282  | 0        | 0.00    |
+|lookup-batch-sync  | 8         | 156.22          | NaN           | 130.42| 267.39| 111594  | 0        | 0.00    |
+|lookup-batch-sync  | 16        | 204.68          | NaN           | 133.30 | 245.52 | 143398| 0        | 0.00    |
+|lookup-batch-sync  | 32        | 208.40          | NaN           | 327.68 | 458.73 | 146127| 0        | 0.00    |
+|lookup-batch-sync  | 64        | 190.94          | NaN           | 708.84 | 912.86 | 136143| 0        | 0.00    |
+|                   |           |                 |               |       |       |         |          |         |      
+|lookup-batch-async | 1         | 29.96           | NaN           | 38.01  | 60.02  | 21278 | 0        | 0.00    |
+|lookup-batch-async | 4         | 82.45           | NaN           | 54.20  | 91.45  | 67820 | 0        | 0.00    |
+|lookup-batch-async | 8         | 149.55          | NaN           | 75.50  | 93.85  | 107467| 0        | 0.00    |
+|lookup-batch-async | 16        | 174.59          | NaN           | 131.86 | 168.82 | 120926| 0        | 0.00    |
+|lookup-batch-async | 32        | 155.55          | NaN           | 267.39 | 460.85 | 110059| 0        | 0.00    |
+|lookup-batch-async | 64        | 109.23          | NaN           | 1025.51| 1170.21| 75567 | 0        | 0.00    |
+
+

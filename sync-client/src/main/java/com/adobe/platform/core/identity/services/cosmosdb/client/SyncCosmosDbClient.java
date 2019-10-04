@@ -17,7 +17,7 @@ public class SyncCosmosDbClient implements CosmosDbClient {
 
     private final CosmosDbConfig cfg;
     private final DocumentClient client;
-    private final Map<String, DocumentDbPartitionMetadata> partitionMetadataMap = new ConcurrentHashMap<>();
+    private final Map<String, DocumentDbPartitionMetadataSync> partitionMetadataMap = new ConcurrentHashMap<>();
 
     public SyncCosmosDbClient(CosmosDbConfig cfg) {
         this.cfg = cfg;
@@ -45,7 +45,7 @@ public class SyncCosmosDbClient implements CosmosDbClient {
         // check and update partition metadata map for collection
         if(!partitionMetadataMap.containsKey(collectionName)){
             logger.info("Fetching Partition Metadata for collection {} ...", collectionName);
-            partitionMetadataMap.put(collectionName, new DocumentDbPartitionMetadata(client, cfg.getCollectionLink(collectionName)));
+            partitionMetadataMap.put(collectionName, new DocumentDbPartitionMetadataSync(client, cfg.getCollectionLink(collectionName)));
             logger.info("Fetching Partition Metadata for collection {} complete.", collectionName);
         }
     }
@@ -79,7 +79,7 @@ public class SyncCosmosDbClient implements CosmosDbClient {
             throw new CosmosDbException(e);
         }
 
-        DocumentDbPartitionMetadata metadata = partitionMetadataMap.get(collectionName); //todo change to name
+        DocumentDbPartitionMetadataSync metadata = partitionMetadataMap.get(collectionName); //todo change to name
         HashMap<String, Set<String>> partitionKeyIdsMap = metadata.getIdsByPartition(idList);
         int numPartitions = partitionKeyIdsMap.keySet().size();
 
@@ -173,6 +173,7 @@ public class SyncCosmosDbClient implements CosmosDbClient {
     @Override
     public void close() {
         client.close();
+        executor.shutdownNow();
     }
 
     private RequestOptions getRequestOptions(){ return getRequestOptions(null);}

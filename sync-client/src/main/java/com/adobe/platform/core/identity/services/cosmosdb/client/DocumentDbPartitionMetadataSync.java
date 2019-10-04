@@ -13,8 +13,8 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public final class DocumentDbPartitionMetadata {
-    private static final Logger log = LoggerFactory.getLogger(DocumentDbPartitionMetadata.class.getSimpleName());
+public final class DocumentDbPartitionMetadataSync {
+    private static final Logger log = LoggerFactory.getLogger(DocumentDbPartitionMetadataSync.class.getSimpleName());
     private volatile CollectionRoutingMap collectionRoutingMap;
     private volatile List<String> partitionKeyRangeIds;
     private volatile PartitionKeyDefinition partitionKeyDefinition;
@@ -25,7 +25,7 @@ public final class DocumentDbPartitionMetadata {
      * @param collectionLink
      * @throws DocumentClientException
      */
-    public DocumentDbPartitionMetadata(DocumentClient client, String collectionLink) throws DocumentClientException {
+    public DocumentDbPartitionMetadataSync(DocumentClient client, String collectionLink) throws DocumentClientException {
         // Get partition key definition from CosmosDB
         this.collectionLink = collectionLink;
         loadPartitionMetaData(client);
