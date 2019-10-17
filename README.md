@@ -29,7 +29,14 @@ The following are the workloads that have been modelled
      jmh {
        params {
          jvmArgs = "-Xmx8G"
-         jmhArgs = "-f1 -i 1 -r 1 -w 1 -wi 1 -t 1 -rf json" // see https://github.com/guozheng/jmh-tutorial/blob/master/README.md#jmh-command-line-options
+         jmhArgs = "-f1  -i 1 -r 1 -w 1 -wi 1 -t 1 -rf json" // see https://github.com/guozheng/jmh-tutorial/blob/master/README.md#jmh-command-line-options
+         // -f 1    -> How many forks? Each fork is an independent benchmark on a separate JVM. Results are aggregated to provide mean and std-dev(error)
+         // -i 1    -> Iterations share the same JVM. Results from each iteration are aggregated to provide mean and std-dev(error)
+         // -r 1    -> How long does each iteration last? (default seconds).
+         // -wi 1   -> How many warm-up iterations? These don't count towards the measurement.
+         // -w 1    -> How long does each warm-up iteration last?
+         // -t 1    -> How many concurrent threads to use for load generation? This is ignored, value from runList below is used instead.
+         // -to 600 -> Timeout (seconds) for each iteration 
          resultsPath = "/tmp/"                              // The detailed results file for each run goes here
          summaryCsvFile = "/tmp/benchmark-results.csv"      // A simple consolidated summary of all the runs go here
        }
@@ -65,11 +72,26 @@ The following are the workloads that have been modelled
 `java -cp benchmark/build/libs/benchmark-1.2-cosmos-2.4.3-SNAPSHOT-shadow.jar com.adobe.platform.core.identity.services.datagenerator.main.DataGenUtil`
 
 ## Run benchmarks
-`java -cp benchmark/build/libs/benchmark-1.2-cosmos-2.4.3-SNAPSHOT-shadow.jar com.adobe.platform.core.identity.services.cosmosdb.client.benchmark.suite.BenchmarkSuiteRunner | tee benchmark.out`
+`java -cp benchmark/build/libs/benchmark-1.2-cosmos-2.4.3-SNAPSHOT-shadow.jar com.adobe.platform.core.identity.services.cosmosdb.client.benchmark.suite.BenchmarkSuiteRunner | tee benchmark.out` \
+Note that the SuiteRunner runs in it's own separate JVM, the purpose of the SuiteRunner is the following
+1. Execute all the benchmarks as per the spec in `benchmark/src/main/resources/reference.conf`
+2. Spawn a JVM for each benchmark run (one-at-a-time) in #1 and aggregate the results into a single CSV file.
 
 ## Debug in IDE
 - Run this main method `com.adobe.platform.core.identity.services.cosmosdb.client.benchmark.jmh.ReadBenchmark.main`
 - This will simply exercise readDocument(..)
+
+## Attaching a debugger to a running benchmark
+1. Update benchmark/src/main/resources/reference.conf with `jvmArgs = "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"` \
+2. Following instructions in section *Run benchmarks* to start the suite runner. This will start the benchmark JVM (not the suite runner) in debug mode, listening on localhost:5005
+3. Instructions to connect using IDEA Community Edition follows
+- From the top menu-bar *Run* -> *Edit Configuration* -> + icon (top-left) to 'Add New Configuration' -> Select 'Remote' -> Rename your configuration to say 'JMH' -> Select port as 5005 -> Debugger mode = Attach to remote JVM -> Hit OK to save and close
+- Set breakpoints as needed, say inside `com.microsoft.azure.cosmosdb.rx.internal.RxDocumentClientImpl.readDocument`
+- Select the newly created JMH run configuration from the drop down and hit the debug button. This will start the debug session.
+
+Notes
+- The default timeout for each JMH iteration is 10min. To increase, update jmhArgs in the config file 
+   
 
 ## Results of benchmark runs
 ### Single Lookup workload
