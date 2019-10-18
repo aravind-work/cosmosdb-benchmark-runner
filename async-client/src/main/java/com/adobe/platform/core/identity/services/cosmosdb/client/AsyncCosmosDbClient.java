@@ -31,7 +31,7 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
     public AsyncCosmosDbClient(CosmosDbConfig cfg){
         this.cfg = cfg;
         this.client = createDocumentClient(cfg.serviceEndpoint, cfg.masterKey, cfg.connectionMode, cfg.consistencyLevel,
-                        cfg.maxPoolSize);
+                        cfg.maxPoolSize, cfg.requestTimeoutInMillis);
         this.executor = Executors.newFixedThreadPool(1000);
                 //Executors.newCachedThreadPool(
                 //new ThreadFactoryBuilder().setNameFormat("AsyncCosmosDbClient-%d").build());
@@ -453,9 +453,11 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
     // -------------  Static Helpers
     private static AsyncDocumentClient createDocumentClient(String serviceEndpoint, String masterKey,
                                                             String connectionMode, String consistencyLevel,
-                                                            int maxPoolSize){
+                                                            int maxPoolSize, int requestTimeoutInMillis){
 
         ConnectionPolicy connectionPolicy = new ConnectionPolicy();
+        connectionPolicy.setRequestTimeoutInMillis(requestTimeoutInMillis);
+
         connectionPolicy.setConnectionMode(ConnectionMode.valueOf(connectionMode));
         connectionPolicy.setMaxPoolSize(maxPoolSize);
 
