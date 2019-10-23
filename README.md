@@ -1,4 +1,4 @@
-# Adobe Benchmark Runner for Cosmos DB 
+# Benchmark Runner for Cosmos DB 
 
 This repo is used for benchmarking Cosmos DB SDK against various workloads
 
@@ -29,7 +29,14 @@ The following are the workloads that have been modelled
      jmh {
        params {
          jvmArgs = "-Xmx8G"
-         jmhArgs = "-f1 -i 1 -r 1 -w 1 -wi 1 -t 1 -rf json" // see https://github.com/guozheng/jmh-tutorial/blob/master/README.md#jmh-command-line-options
+         jmhArgs = "-f1  -i 1 -r 1 -w 1 -wi 1 -t 1 -rf json" // see https://github.com/guozheng/jmh-tutorial/blob/master/README.md#jmh-command-line-options
+         // -f 1    -> How many forks? Each fork is an independent benchmark on a separate JVM. Results are aggregated to provide mean and std-dev(error)
+         // -i 1    -> Iterations share the same JVM. Results from each iteration are aggregated to provide mean and std-dev(error)
+         // -r 1    -> How long does each iteration last? (default seconds).
+         // -wi 1   -> How many warm-up iterations? These don't count towards the measurement.
+         // -w 1    -> How long does each warm-up iteration last?
+         // -t 1    -> How many concurrent threads to use for load generation? This is ignored, value from runList below is used instead.
+         // -to 600 -> Timeout (seconds) for each iteration 
          resultsPath = "/tmp/"                              // The detailed results file for each run goes here
          summaryCsvFile = "/tmp/benchmark-results.csv"      // A simple consolidated summary of all the runs go here
        }
@@ -62,43 +69,59 @@ The following are the workloads that have been modelled
     - Look for the following block and modify as needed. :wq to save file and :q! to exit Vim zip browser.
 
 ## Generate test collection and data
-`java -cp ./benchmark-1.2-cosmos-2.4.3-SNAPSHOT-shadow.jar com.adobe.platform.core.identity.services.datagenerator.main.DataGenUtil`
+`java -cp benchmark/build/libs/benchmark-1.2-cosmos-2.4.3-SNAPSHOT-shadow.jar com.adobe.platform.core.identity.services.datagenerator.main.DataGenUtil`
 
 ## Run benchmarks
-`java -cp ./benchmark-1.2-cosmos-2.4.3-SNAPSHOT-shadow.jar com.adobe.platform.core.identity.services.cosmosdb.client.benchmark.suite.BenchmarkSuiteRunner | tee benchmark.out`
+`java -cp benchmark/build/libs/benchmark-1.2-cosmos-2.4.3-SNAPSHOT-shadow.jar com.adobe.platform.core.identity.services.cosmosdb.client.benchmark.suite.BenchmarkSuiteRunner | tee benchmark.out` \
+Note that the SuiteRunner runs in it's own separate JVM, the purpose of the SuiteRunner is the following
+1. Execute all the benchmarks as per the spec in `benchmark/src/main/resources/reference.conf`
+2. Spawn a JVM for each benchmark run (one-at-a-time) in #1 and aggregate the results into a single CSV file.
 
 ## Debug in IDE
 - Run this main method `com.adobe.platform.core.identity.services.cosmosdb.client.benchmark.jmh.ReadBenchmark.main`
 - This will simply exercise readDocument(..)
 
+## Attaching a debugger to a running benchmark
+1. Update benchmark/src/main/resources/reference.conf with `jvmArgs = "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"` \
+2. Following instructions in section *Run benchmarks* to start the suite runner. This will start the benchmark JVM (not the suite runner) in debug mode, listening on localhost:5005
+3. Instructions to connect using IDEA Community Edition follows
+- From the top menu-bar *Run* -> *Edit Configuration* -> + icon (top-left) to 'Add New Configuration' -> Select 'Remote' -> Rename your configuration to say 'JMH' -> Select port as 5005 -> Debugger mode = Attach to remote JVM -> Hit OK to save and close
+- Set breakpoints as needed, say inside `com.microsoft.azure.cosmosdb.rx.internal.RxDocumentClientImpl.readDocument`
+- Select the newly created JMH run configuration from the drop down and hit the debug button. This will start the debug session.
+
+Notes
+- The default timeout for each JMH iteration is 10min. To increase, update jmhArgs in the config file 
+   
+
 ## Results of benchmark runs
 ### Single Lookup workload
 #### Sync SDK v2.4.0 vs Async SDK v2.4.3
 refer to /benchmark/results/2.4.3/lookup-single
-```
-OpName, ThreadCount, Throughput(ops/s),  Throughput(+/-), P95(ms), P99(ms), OpCount, ErrorCount, ErrorRate
 
-lookup-single-sync, 1, 729.42, NaN, 1.67, 2.00, 510189, 0, 0.00
-lookup-single-sync, 50, 40262.35, NaN, 1.47, 2.10, 28706975, 0, 0.00
-lookup-single-sync, 100, 69682.23, NaN, 1.86, 4.10, 49662923, 0, 0.00
-lookup-single-sync, 125, 81009.16, NaN, 2.53, 6.37, 56384645, 0, 0.00
-lookup-single-sync, 250, 89921.72, NaN, 5.41, 17.14, 62845832, 0, 0.00
-lookup-single-sync, 300, 89358.84, NaN, 7.25, 24.12, 62005360, 0, 0.00
+|OpName             |ThreadCount|Throughput(ops/s)|Throughput(+/-)|P95(ms)|P99(ms)|OpCount  |ErrorCount|ErrorRate|
+|-------------------|-----------|-----------------|---------------|-------|-------|---------|----------|---------|
+|lookup-single-sync | 1         | 729.42          | NaN           | 1.67  | 2.00  | 510189  | 0        | 0.00    |
+|lookup-single-sync | 50        | 40262.35        | NaN           | 1.47  | 2.10  | 28706975| 0        | 0.00    |
+|lookup-single-sync | 100       | 69682.23        | NaN           | 1.86  | 4.10  | 49662923| 0        | 0.00    |
+|lookup-single-sync | 125       | 81009.16        | NaN           | 2.53  | 6.37  | 56384645| 0        | 0.00    |
+|lookup-single-sync | 250       | 89921.72        | NaN           | 5.41  | 17.14 | 62845832| 0        | 0.00    |
+|lookup-single-sync | 300       | 89358.84        | NaN           | 7.25  | 24.12 | 62005360| 0        | 0.00    |
+|                   |           |                 |               |       |       |         |          |         |      
+|lookup-single-async| 1         | 659.74          | NaN           | 1.80  | 2.11  | 471670  | 0        | 0.00    |
+|lookup-single-async| 50        | 32395.38        | NaN           | 1.80  | 2.42  | 23345061| 0        | 0.00    |
+|lookup-single-async| 100       | 54134.88        | NaN           | 3.22  | 5.18  | 37266361| 0        | 0.00    |
+|lookup-single-async| 125       | 54486.74        | NaN           | 4.45  | 7.95  | 38483976| 0        | 0.00    |
+|lookup-single-async| 250       | 63342.66        | NaN           | 13.14 | 22.54 | 42745108| 0        | 0.00    |
+|lookup-single-async| 300       | 64177.47        | NaN           | 14.47 | 24.74 | 45406863| 0        | 0.00    |
+|lookup-single-async| 400       | 62915.07        | NaN           | 23.66 | 37.95 | 42994734| 0        | 0.00    |
+|lookup-single-async| 500       | 64044.00        | NaN           | 29.92 | 46.47 | 42813558| 0        | 0.00    |
 
-lookup-single-async, 1, 659.74, NaN, 1.80, 2.11, 471670, 0, 0.00
-lookup-single-async, 50, 32395.38, NaN, 1.80, 2.42, 23345061, 0, 0.00
-lookup-single-async, 100, 54134.88, NaN, 3.22, 5.18, 37266361, 0, 0.00
-lookup-single-async, 125, 54486.74, NaN, 4.45, 7.95, 38483976, 0, 0.00
-lookup-single-async, 250, 63342.66, NaN, 13.14, 22.54, 42745108, 0, 0.00
-lookup-single-async, 300, 64177.47, NaN, 14.47, 24.74, 45406863, 0, 0.00
-lookup-single-async, 400, 62915.07, NaN, 23.66, 37.95, 42994734, 0, 0.00
-lookup-single-async, 500, 64044.00, NaN, 29.92, 46.47, 42813558, 0, 0.00
-```
 #### Async SDK v2.6.1
-```
-OpName, ThreadCount, Throughput(ops/s),  Throughput(+/-), P95(ms), P99(ms), OpCount, ErrorCount, ErrorRate
-lookup-single-async-cosmos-v2.6.1, 1, 782.71, NaN, 1.51, 1.83, 557409, 0, 0.00
-```
+
+|OpName                                  |ThreadCount|Throughput(ops/s)|Throughput(+/-)|P95(ms)|P99(ms)|OpCount  |ErrorCount|ErrorRate|
+|----------------------------------------|-----------|-----------------|---------------|-------|-------|---------|----------|---------|
+|lookup-single-async-cosmos-v2.6.1       | 1         | 782.71          | NaN           | 1.51  | 1.83  | 557409  | 0        | 0.00    |
+
 Benchmark hangs for threadCount > 1, the following messages are logged
 ```
 2019-10-03 18:38:16,046       [CosmosEventLoop-5-18] WARN  com.microsoft.azure.cosmosdb.internal.directconnectivity.GoneAndRetryWithRetryPolicy - Received gone exception, will retry, GoneException{error=null, resourceAddress='rntbd://cdb-ms-prod-eastus2-fd14.documents.azure.com:16748/apps/16d6d56e-e73d-4069-98f5-2e677328a7d1/services/1e12e422-b053-47c7-9c03-c5a1b1d73024/partitions/c0ec71ae-5880-40a5
@@ -135,31 +158,24 @@ a82f-7dcf6e258b17/replicas/132144188441640655s/', statusCode=410, message=Channe
 %3Dmaster%26ver%3D1.0%26sig%3DrbcKmQsWk48TvvXXaqY7uvWz2BT3ReHuI%2B35MeZpq%2F0%3D, Accept=application/json, x-ms-date=Thu, 03 Oct 2019 18:38:17 GMT, x-ms-documentdb-collection-rid=j7M8ANVKp0o=, x-ms-client-retry-attempt-count=0, x-ms-documentdb-partitionkey=["330d5cfd-923e-4657-b253-713dd7695a0c"], x-ms-remaining-time-in-ms-on-client=60000, x-ms-consistency-level=Eventual}}
 
 ```
-### Batch Lookup workload
-#### Sync SDK v2.4.0 vs Async SDK v2.4.3 
-refer to /benchmark/results/2.4.3/lookup-batch/benchmark-results-09-30-2019-cosmos-v2.4.3.csv
-```
-OpName, ThreadCount, Throughput(ops/s),  Throughput(+/-), P95(ms), P99(ms), OpCount, ErrorCount, ErrorRate
 
-# Combine all observable into one and call .toBlocking().single()
-lookup-batch-async, 1, 30.15, NaN, 41.16, 56.72, 21094, 0, 0.00
-lookup-batch-async, 2, 51.31, NaN, 47.53, 258.21, 36728, 0, 0.00
-lookup-batch-async, 4, 108.01, NaN, 53.67, 66.17, 77079, 0, 0.00
-lookup-batch-async, 8, 148.67, NaN, 78.12, 95.42, 107124, 0, 0.00
-lookup-batch-async, 16, 149.77, NaN, 143.39, 254.80, 106294, 0, 0.00
-lookup-batch-async, 32, 109.37, NaN, 517.47, 561.55, 75882, 0, 0.00
-lookup-batch-async, 64, 73.40, NaN, 1119.88, 1210.06, 51717, 0, 0.00
-lookup-batch-async, 128, 37.81, NaN, 7902.07, 9279.48, 23137, 0, 0.00
+### Batch lookup workload
+#### Sync SDK v2.4.0 vs Async SDK v2.4.3
 
-# Use wrap each observable in a callable and submit on a fixed size executor with 1000 threads 
-multi-thread-lookup-batch-async, 1, 64.15, NaN, 22.52, 28.40, 46599, 0, 0.00
-multi-thread-lookup-batch-async, 2, 106.13, NaN, 29.36, 39.52, 75556, 0, 0.00
-multi-thread-lookup-batch-async, 4, 137.14, NaN, 43.91, 55.04, 98971, 0, 0.00
-multi-thread-lookup-batch-async, 8, 145.50, NaN, 79.82, 90.70, 106263, 0, 0.00
-multi-thread-lookup-batch-async, 16, 145.81, NaN, 154.66, 176.42, 101407, 0, 0.00
-multi-thread-lookup-batch-async, 32, 132.65, NaN, 299.37, 410.52, 95952, 0, 0.00
-multi-thread-lookup-batch-async, 64, 127.20, NaN, 676.33, 727.71, 88310, 0, 0.00
-multi-thread-lookup-batch-async, 128, 121.05, NaN, 1254.10, 1327.50, 85268, 0, 0.00
-```
-#### Async SDK v2.6.1
-todo
+|OpName             |ThreadCount|Throughput(ops/s)|Throughput(+/-)|P95(ms)|P99(ms)|OpCount  |ErrorCount|ErrorRate|
+|-------------------|-----------|-----------------|---------------|-------|-------|---------|----------|---------|
+|lookup-batch-sync  | 1         | 65.55           | NaN           | 20.48 | 172.60| 45489   | 0        | 0.00    |
+|lookup-batch-sync  | 4         | 138.54          | NaN           | 61.08 | 143.89| 102282  | 0        | 0.00    |
+|lookup-batch-sync  | 8         | 156.22          | NaN           | 130.42| 267.39| 111594  | 0        | 0.00    |
+|lookup-batch-sync  | 16        | 204.68          | NaN           | 133.30 | 245.52 | 143398| 0        | 0.00    |
+|lookup-batch-sync  | 32        | 208.40          | NaN           | 327.68 | 458.73 | 146127| 0        | 0.00    |
+|lookup-batch-sync  | 64        | 190.94          | NaN           | 708.84 | 912.86 | 136143| 0        | 0.00    |
+|                   |           |                 |               |       |       |         |          |         |      
+|lookup-batch-async | 1         | 29.96           | NaN           | 38.01  | 60.02  | 21278 | 0        | 0.00    |
+|lookup-batch-async | 4         | 82.45           | NaN           | 54.20  | 91.45  | 67820 | 0        | 0.00    |
+|lookup-batch-async | 8         | 149.55          | NaN           | 75.50  | 93.85  | 107467| 0        | 0.00    |
+|lookup-batch-async | 16        | 174.59          | NaN           | 131.86 | 168.82 | 120926| 0        | 0.00    |
+|lookup-batch-async | 32        | 155.55          | NaN           | 267.39 | 460.85 | 110059| 0        | 0.00    |
+|lookup-batch-async | 64        | 109.23          | NaN           | 1025.51| 1170.21| 75567 | 0        | 0.00    |
+
+
