@@ -2,8 +2,6 @@ package com.adobe.platform.core.identity.services.datagenerator;
 
 import com.adobe.platform.core.identity.services.cosmosdb.client.AsyncCosmosDbClient;
 import com.adobe.platform.core.identity.services.cosmosdb.client.CosmosDbConfig;
-import com.adobe.platform.core.identity.services.cosmosdb.util.CosmosDbNotFoundException;
-import com.microsoft.azure.cosmosdb.Database;
 import com.microsoft.azure.cosmosdb.Document;
 import com.microsoft.azure.cosmosdb.ResourceResponse;
 import org.apache.commons.lang3.tuple.Pair;
@@ -34,8 +32,6 @@ public abstract class AbstractDataGen implements DataGen {
 
     // Entry point to perform collection creation and test-data generation
     public synchronized void runDataGeneration(){
-        Database db = client.getDatabase().toBlocking().single();
-
         // Rebuild collections and populate with test data
         if (datagenConfig.reCreateCollections) {
             if(!recreateCollections(getRequiredCollectionList())){
@@ -84,8 +80,8 @@ public abstract class AbstractDataGen implements DataGen {
 
         return Observable.from(collectionNames)
                 .flatMap(c -> Observable.concat(
-                    client.deleteCollection(c),
-                    client.createCollection(c, DataGenConfig.P_KEY, datagenConfig.collectionRusOnCreate,
+                    client.deleteCollection(datagenConfig.collectionPrefix + c),
+                    client.createCollection(datagenConfig.collectionPrefix + c, DataGenConfig.P_KEY, datagenConfig.collectionRusOnCreate,
                                         datagenConfig.collectionRusPostCreate, datagenConfig.createWithConsistencyLevel)))
                 .reduce((a,b) -> a && b)
                 .subscribeOn(Schedulers.computation())
