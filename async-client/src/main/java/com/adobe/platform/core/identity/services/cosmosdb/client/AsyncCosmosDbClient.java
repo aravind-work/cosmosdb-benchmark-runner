@@ -1,6 +1,7 @@
 package com.adobe.platform.core.identity.services.cosmosdb.client;
 
 import com.adobe.platform.core.identity.services.cosmosdb.util.CosmosDbException;
+import com.adobe.platform.core.identity.services.cosmosdb.util.CosmosDbNotFoundException;
 import com.microsoft.azure.cosmosdb.*;
 import com.microsoft.azure.cosmosdb.internal.HttpConstants;
 import com.microsoft.azure.cosmosdb.internal.directconnectivity.RequestRateTooLargeException;
@@ -284,7 +285,7 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
                     new SqlParameterCollection(new SqlParameter("@id", dbName))), null)
             .flatMap(feedResponse -> {
                 if (feedResponse.getResults().isEmpty()) {
-                    return Observable.error(new RuntimeException("cannot find database " + dbName));
+                    return Observable.error(new CosmosDbNotFoundException("cannot find database " + dbName));
                 } else {
                     return Observable.just(feedResponse.getResults().get(0));
                 }
@@ -383,7 +384,7 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
                                     ".", e)));
             })
             .onErrorResumeNext(e ->
-                    Observable.error(new RuntimeException("Failed to create collection with name=name=" +
+                    Observable.error(new RuntimeException("Failed to create collection with name=" +
                             collectionName + " databaseLink=" + databaseLink +".", e)));
 
         // Add deferred logging statement to the observable

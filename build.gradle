@@ -23,6 +23,32 @@ allprojects {
     repositories {
         jcenter()
         mavenCentral()
+        maven {
+            name = 'Release repo'
+            url = 'https://artifactory.corp.adobe.com/artifactory/maven-experienceplatform-release/'
+            credentials {
+                username = project.hasProperty('artifactoryUserName') ? artifactoryUserName : System.getenv('ARTIFACTORY_USER')
+                password = project.hasProperty('artifactoryApiToken') ? artifactoryApiToken : System.getenv('ARTIFACTORY_API_TOKEN')
+            }
+        }
+
+        maven {
+            name = "Snapshot Repo"
+            url = 'https://artifactory.corp.adobe.com:443/artifactory/maven-experienceplatform-snapshot/'
+            credentials {
+                username = project.hasProperty('artifactoryUserName') ? artifactoryUserName : System.getenv('ARTIFACTORY_USER')
+                password = project.hasProperty('artifactoryApiToken') ? artifactoryApiToken : System.getenv('ARTIFACTORY_API_TOKEN')
+            }
+        }
+
+        maven {
+            name = "Snapshot Repo"
+            url = 'https://artifactory.corp.adobe.com:443/artifactory/maven-experienceplatform-snapshot-local/'
+            credentials {
+                username = project.hasProperty('artifactoryUserName') ? artifactoryUserName : System.getenv('ARTIFACTORY_USER')
+                password = project.hasProperty('artifactoryApiToken') ? artifactoryApiToken : System.getenv('ARTIFACTORY_API_TOKEN')
+            }
+        }
     }
 }
 
@@ -89,5 +115,6 @@ project(':sync-client') {
 project(':test-data-generator'){
     dependencies {
         compile project(':async-client')
+        compile("com.adobe.platform.identity.services:instagraph-core_2.11:2.3.0")
     }
 }
