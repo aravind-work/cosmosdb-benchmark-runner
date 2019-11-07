@@ -472,7 +472,7 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
     private static IndexingPolicy getDefaultIndexingPolicy() {
         IndexingPolicy indexingPolicy = new IndexingPolicy();
         indexingPolicy.setAutomatic(false);
-        indexingPolicy.setIndexingMode(IndexingMode.Lazy);
+        indexingPolicy.setIndexingMode(IndexingMode.Consistent);
 
         ExcludedPath ePath1 = new ExcludedPath();
         ePath1.setPath("/*");
@@ -480,7 +480,7 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
         paths.add(ePath1);
         Collection<ExcludedPath> excludedPaths = paths;
 
-        indexingPolicy.setExcludedPaths(excludedPaths);
+        //indexingPolicy.setExcludedPaths(excludedPaths);
 
         return indexingPolicy;
     }

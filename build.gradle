@@ -11,7 +11,7 @@ allprojects {
     apply plugin: 'idea'
 
     ext {
-        cosmosAsyncVersion = project.hasProperty('cosmosAsyncVersion') ? project.getProperty('cosmosAsyncVersion') : '2.6.3'
+        cosmosAsyncVersion = project.hasProperty('cosmosAsyncVersion') ? project.getProperty('cosmosAsyncVersion') : '2.4.3'
     }
 
     group = 'com.adobe.platform.core.identity.services'
