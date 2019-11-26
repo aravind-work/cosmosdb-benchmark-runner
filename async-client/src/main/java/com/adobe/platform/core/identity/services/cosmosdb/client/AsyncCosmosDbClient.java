@@ -471,8 +471,8 @@ public class AsyncCosmosDbClient implements CosmosDbClient {
 
     private static IndexingPolicy getDefaultIndexingPolicy() {
         IndexingPolicy indexingPolicy = new IndexingPolicy();
-        indexingPolicy.setAutomatic(false);
-        indexingPolicy.setIndexingMode(IndexingMode.None);
+        indexingPolicy.setAutomatic(true);
+        indexingPolicy.setIndexingMode(IndexingMode.Consistent);
 
         return indexingPolicy;
     }

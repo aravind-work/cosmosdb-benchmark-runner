@@ -11,16 +11,23 @@ public class DataGenUtil {
     private static final Logger logger = LoggerFactory.getLogger(DataGenUtil.class.getSimpleName());
 
     public static void main(String[] args) {
-        // Create config objects
-        CosmosDbConfig cosmosConfig = new CosmosDbConfig();
-        DataGenConfig dataGenConfig = new DataGenConfig();
 
-        // Run Data Generator
-        DataGen generator = DataGen.getInstance(dataGenConfig, cosmosConfig);
-        generator.runDataGeneration();
-        generator.shutdown();
+        System.setProperty("cosmos.directModeProtocol", "Https");
+        try {
+            // Create config objects
+            CosmosDbConfig cosmosConfig = new CosmosDbConfig();
+            DataGenConfig dataGenConfig = new DataGenConfig();
 
-        logger.info("Data Generator has finished.");
-        System.exit(0);
+            // Run Data Generator
+            DataGen generator = DataGen.getInstance(dataGenConfig, cosmosConfig);
+            generator.runDataGeneration();
+            generator.shutdown();
+
+            logger.info("Data Generator has finished.");
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            System.exit(0);
+        }
     }
 }

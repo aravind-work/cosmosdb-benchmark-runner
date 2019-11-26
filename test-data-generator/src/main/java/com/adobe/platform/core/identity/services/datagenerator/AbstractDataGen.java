@@ -61,7 +61,7 @@ public abstract class AbstractDataGen implements DataGen {
 
         List<ResourceResponse<Document>> results = Observable.from(docs.entrySet())
                 .flatMap(entry -> Observable.from(entry.getValue()).map(a -> Pair.of(entry.getKey(), a)))
-                .flatMap(pair -> client.createDocument(pair.getKey(), pair.getValue()))
+                .flatMap(pair -> client.createDocument(pair.getKey(), pair.getValue()).onErrorResumeNext(Observable.empty()))
                 .toList()
                 .subscribeOn(Schedulers.computation())
                 .toBlocking()
