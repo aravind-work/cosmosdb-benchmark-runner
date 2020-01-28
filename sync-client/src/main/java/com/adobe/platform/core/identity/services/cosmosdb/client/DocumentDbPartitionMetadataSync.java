@@ -73,7 +73,7 @@ public final class DocumentDbPartitionMetadataSync {
     /**
      * @return A list of the partition key ids for the current collection.
      */
-    private List<String> getCollectionPartitionKeyRangeIds() {
+    public List<String> getCollectionPartitionKeyRangeIds() {
         Range<String> fullRange = new Range<>(PartitionKeyInternal.MinimumInclusiveEffectivePartitionKey,
                 PartitionKeyInternal.MaximumExclusiveEffectivePartitionKey, true, false);
 

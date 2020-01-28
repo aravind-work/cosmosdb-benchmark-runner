@@ -26,6 +26,40 @@ public class SyncCosmosDbClient implements CosmosDbClient {
         this.executor = Executors.newFixedThreadPool(cfg.batchQueryExecutorThreadPoolSize);
     }
 
+    public List<List<String>> getIdsPerPartition(String collectionName, int itemsPerPartition)  {
+        try {
+            loadPartitionMetadataIfNeeded(collectionName);
+
+            DocumentDbPartitionMetadataSync metadata = partitionMetadataMap.get(collectionName);
+
+            List<String> partitionKeyRangeIds = metadata.getCollectionPartitionKeyRangeIds();
+
+
+            List<List<String>> idsByPartitionKeyRangeId = new ArrayList<>();
+
+            for (String pkRangeId : partitionKeyRangeIds) {
+                ArrayList<String> currentPartitionIds = new ArrayList<>();
+
+                FeedOptions options = new FeedOptions();
+                options.setPartitionKeyRangeIdInternal(pkRangeId);
+
+                FeedResponse<Document> resutls = client.readDocuments("/dbs/" + cfg.dbName + "/colls/" + collectionName, options);
+                Iterator<Document> iterator = resutls.getQueryIterator();
+                int cnt = 0;
+                while (cnt < itemsPerPartition && iterator.hasNext()) {
+                    currentPartitionIds.add(iterator.next().getId());
+                    cnt++;
+                }
+
+                idsByPartitionKeyRangeId.add(currentPartitionIds);
+            }
+
+            return idsByPartitionKeyRangeId;
+        } catch (DocumentClientException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private DocumentClient createDocumentClient(String serviceEndpoint, String masterKey, String connectionMode, String consistencyLevel, int maxPoolSize) {
         ConnectionPolicy cPolicy = new ConnectionPolicy();
 

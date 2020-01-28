@@ -33,6 +33,7 @@ public class AbstractBenchmark {
 
             return result;
         } catch (Throwable th) {
+            th.printStackTrace();;
             addCounterResult(ERROR_COUNT_RESULT_NAME, 1, "ops", AggregationPolicy.SUM);
             logger.error("{} Exception in benchmark method. Msg = {}, Cause = {}", th.getClass().getSimpleName(), th.getMessage(), th.getCause() == null ? "null" : th.getCause().getMessage());
             return null;

@@ -11,5 +11,6 @@ public interface CosmosDbClient {
     SimpleResponse createDocument(String collectionName, SimpleDocument sDoc) throws CosmosDbException;
 
     CosmosDbConfig getConfig();
+
     void close();
 }

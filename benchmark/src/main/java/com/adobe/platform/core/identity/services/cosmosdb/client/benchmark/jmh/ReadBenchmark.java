@@ -18,7 +18,7 @@ public class ReadBenchmark extends AbstractBenchmark{
     private Workload workload;
     private CosmosDbClientType clientType;
 
-    @Param({"sync", "async"})
+    @Param({"sync", "async", "v4"})
     String cosmosClientType;
 
     @Setup(Level.Trial)
@@ -67,10 +67,10 @@ public class ReadBenchmark extends AbstractBenchmark{
     public static void main(String args[]) throws CosmosDbException {
         String challengeResponse = "Today's password is swordfish. I understand instantiating Blackholes directly " +
                                     "is dangerous.";
-        int iterations = 10000;
+        int iterations = 10;
 
         ReadBenchmark bench = new ReadBenchmark();
-        bench.cosmosClientType = "sync";
+        bench.cosmosClientType = "v4";
         bench.setup();
 
         try {

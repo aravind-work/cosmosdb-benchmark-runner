@@ -34,26 +34,58 @@ public class TwoTableWorkload extends AbstractWorkload{
     }
 
     public synchronized void workloadSetup(){
-        AsyncCosmosDbClient asyncClient = new AsyncCosmosDbClient(cosmosConfig);
+//        AsyncCosmosDbClient asyncClient = new AsyncCosmosDbClient(cosmosConfig);
+//
+//        // These function only work with async client for now. todo
+//        asyncClient.verifyCollectionsExist(Arrays.asList(routingCollectionName, graphCollectionName));
+//
+//        // Get keys from each partition for querying
+//        idsPerPartition = asyncClient.getIdsPerPartition(routingCollectionName, MAX_IDS_TO_FETCH_PER_PARTITION)
+//                        .toBlocking().single();
+//        int partitionCount = idsPerPartition.size();
+//        long docCount = idsPerPartition.stream().flatMap(List::stream).count();
+//        logger.info("Fetched {} ids from {} partitions.", docCount, partitionCount);
 
-        // These function only work with async client for now. todo
-        asyncClient.verifyCollectionsExist(Arrays.asList(routingCollectionName, graphCollectionName));
-
-        // Get keys from each partition for querying
-        idsPerPartition = asyncClient.getIdsPerPartition(routingCollectionName, MAX_IDS_TO_FETCH_PER_PARTITION)
-                        .toBlocking().single();
+        SyncCosmosDbClient syncCosmosClient = new SyncCosmosDbClient(cosmosConfig);
+        idsPerPartition =  syncCosmosClient.getIdsPerPartition(routingCollectionName, MAX_IDS_TO_FETCH_PER_PARTITION);
         int partitionCount = idsPerPartition.size();
         long docCount = idsPerPartition.stream().flatMap(List::stream).count();
+
         logger.info("Fetched {} ids from {} partitions.", docCount, partitionCount);
 
+        syncCosmosClient.close();
+
+//
+//        // These function only work with async client for now. todo
+
+//
+//        // Get keys from each partition for querying
+//        idsPerPartition = asyncClient.getIdsPerPartition(routingCollectionName, MAX_IDS_TO_FETCH_PER_PARTITION)
+//                        .toBlocking().single();
+//        int partitionCount = idsPerPartition.size();
+//        long docCount = idsPerPartition.stream().flatMap(List::stream).count();
+//        logger.info("Fetched {} ids from {} partitions.", docCount, partitionCount);
+
+
+
         // If we are benchmarking the sync SDK, close the Async Client and init the sync client
-        if(clientType.equals(CosmosDbClientType.SYNC)){
-            asyncClient.close();
-            logger.info("Using SYNC client for this workload");
-            client = new SyncCosmosDbClient(cosmosConfig);
-        } else {
-            logger.info("Using ASYNC client for this workload");
-            client = asyncClient;
+        //asyncClient.close();
+
+        switch (clientType) {
+            case V4:
+                logger.info("Using SYNC client for this workload");
+                client = new V4AsyncCosmosDbClient(cosmosConfig);
+                break;
+            case SYNC:
+                logger.info("Using SYNC client for this workload");
+                client = new SyncCosmosDbClient(cosmosConfig);
+                break;
+            case ASYNC:
+                logger.info("Using SYNC client for this workload");
+                client = new AsyncCosmosDbClient(cosmosConfig);
+                break;
+            default:
+                throw new IllegalStateException("unknown option: " + clientType);
         }
     }
 
@@ -111,7 +143,7 @@ public class TwoTableWorkload extends AbstractWorkload{
         return () -> {
 
             List<String> queryXids = new ArrayList<>(selectDocIdsAcrossPartitions(BATCH_QUERY_SIZE, idsPerPartition));
-            SimpleResponse response = client.readDocumentsMultiThread(routingCollectionName, queryXids,
+            SimpleResponse response = client.readDocuments(routingCollectionName, queryXids,
                     MAX_PER_PARTITION_QUERY_BATCH_SIZE);
 
             List<SimpleDocument> docs = response.getDocuments();
