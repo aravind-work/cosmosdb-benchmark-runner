@@ -11,7 +11,9 @@ allprojects {
     apply plugin: 'idea'
 
     ext {
-        cosmosAsyncVersion = project.hasProperty('cosmosAsyncVersion') ? project.getProperty('cosmosAsyncVersion') : '2.6.5-SNAPSHOT'
+        cosmosV4Version = project.hasProperty('cosmosV4Version') ? project.getProperty('cosmosV4Version') : '4.0.0-SNAPSHOT'
+        cosmosV3Version = project.hasProperty('cosmosV3Version') ? project.getProperty('cosmosV3Version') : '3.6.0'
+        cosmosV2Version = project.hasProperty('cosmosV2Version') ? project.getProperty('cosmosV2Version') : '2.6.5'
     }
 
     group = 'com.adobe.platform.core.identity.services'
@@ -31,13 +33,12 @@ project(':benchmark') {
     apply plugin: 'com.github.johnrengelman.shadow'
 
     dependencies {
-        compile project(':v3-client')
         compile project(':v4-client')
-
+        compile project(':v3-client')
         compile project(':async-client')
         compile project(':sync-client')
         compile project(':test-data-generator')
-        
+
         compile "org.openjdk.jmh:jmh-core:1.21"
         annotationProcessor "org.openjdk.jmh:jmh-generator-annprocess:1.21"
     }
@@ -76,7 +77,7 @@ project(':client-common'){
 project(':async-client') {
     dependencies {
         compile project(':client-common')
-        compile "com.microsoft.azure:azure-cosmosdb:${cosmosAsyncVersion}"
+        compile "com.microsoft.azure:azure-cosmosdb:${cosmosV2Version}"
 //        compile group: 'io.netty', name: 'netty-tcnative', version: '2.0.28.Final', classifier: 'linux-x86_64'
 //        compile "io.netty:netty-tcnative-boringssl-static:2.0.28.Final"
     }
@@ -85,7 +86,7 @@ project(':async-client') {
 project(':v4-client') {
     dependencies {
         compile project(':client-common')
-        compile "com.azure:azure-cosmos:4.0.0-SNAPSHOT"
+        compile "com.azure:azure-cosmos:${cosmosV4Version}"
 //        compile "io.netty:netty-tcnative-boringssl-static:2.0.28.Final"
 //        compile group: 'io.netty', name: 'netty-tcnative', version: '2.0.28.Final', classifier: 'linux-x86_64'
 //        compile group: 'software.amazon.cryptools', name: 'AmazonCorrettoCryptoProvider', version: '1.3.0', classifier: 'linux-x86_64'
@@ -95,7 +96,7 @@ project(':v4-client') {
 project(':v3-client') {
     dependencies {
         compile project(':client-common')
-        compile group: 'com.microsoft.azure', name: 'azure-cosmos', version: '3.6.0'
+        compile "com.microsoft.azure:azure-cosmos:${cosmosV3Version}"
 //        compile group: 'io.netty', name: 'netty-tcnative', version: '2.0.28.Final', classifier: 'linux-x86_64'
 //        compile "io.netty:netty-tcnative-boringssl-static:2.0.28.Final"
 //        compile group: 'software.amazon.cryptools', name: 'AmazonCorrettoCryptoProvider', version: '1.3.0', classifier: 'linux-x86_64'

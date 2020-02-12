@@ -10,10 +10,16 @@ import com.azure.cosmos.FeedResponse;
 import com.azure.cosmos.PartitionKey;
 import com.azure.cosmos.RequestRateTooLargeException;
 import com.azure.cosmos.implementation.HttpConstants;
+import com.azure.cosmos.implementation.Utils;
 import com.azure.cosmos.implementation.query.PartitionedQueryExecutionInfo;
 import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.NotImplementedException;
 import org.slf4j.Logger;
@@ -40,6 +46,14 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
     private final Map<String, V4DocumentDbPartitionMetadata> partitionMetadataMap = new ConcurrentHashMap<>();
     private final Map<String, CosmosAsyncContainer> cosmosAsyncContainerMap = new ConcurrentHashMap<>();
     private final PartitionedQueryExecutionInfo queryPlan;
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            .configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true)
+            .configure(JsonParser.Feature.ALLOW_TRAILING_COMMA, true)
+            .configure(JsonParser.Feature.STRICT_DUPLICATE_DETECTION, true)
+            .registerModule(new AfterburnerModule());
+
+
 
     public V4AsyncCosmosDbClient(CosmosDbConfig cfg){
 //        com.amazon.corretto.crypto.provider.AmazonCorrettoCryptoProvider.install();
@@ -103,8 +117,7 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
         options.setMaxDegreeOfParallelism(100);
         options.setMaxBufferedItemCount(1000000);
 
-        List<FeedResponse<PojoizedJson>> list = makeSync(getCosmosContainerOrLoad(collectionName).queryItems(queryString, options, PojoizedJson.class).collectList());
-
+        List<FeedResponse<PojoizedJson>> list = makeSync(getCosmosContainerOrLoad(collectionName).queryItems(queryString, options, PojoizedJson.class).byPage().collectList());
         List<SimpleDocument> docs = list.stream().flatMap(fr -> fr.getResults().stream()).map(item -> new SimpleDocument(item.getId(), item.getInstance()))
                 .collect(Collectors.toList());
 
@@ -153,10 +166,10 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
     @Override
     public CosmosDbConfig getConfig(){ return this.cfg; }
 
-    public Mono<CosmosAsyncItemResponse<PojoizedJson>> getDocument(String collectionName, String docId){
+    public Mono<CosmosAsyncItemResponse<JsonNode>> getDocument(String collectionName, String docId){
         CosmosAsyncContainer cosmosAsyncContainer = getCosmosContainerOrLoad(collectionName);
         PartitionKey pk = getPartitionKey(docId);
-        return cosmosAsyncContainer.readItem(docId, pk, PojoizedJson.class)
+        return cosmosAsyncContainer.readItem(docId, pk, JsonNode.class)
                 .publishOn(Schedulers.immediate())
                 .retryWhen(errors -> errors.flatMap(error -> {
                             // For IOExceptions, we  retry
@@ -177,10 +190,14 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
     public SimpleResponse readDocument(String collectionName, String docId) throws CosmosDbException{
         return makeSync(
                 getDocument(collectionName, docId)
-                    .map(r -> new SimpleResponse(new SimpleDocument(r.getProperties().getId(),
-                            r.getProperties().getMap()), r.getStatusCode(), r.getRequestCharge(),
-                            0,//r.getRequestLatency().toMillis(),
-                            r.getActivityId())));
+                     .map(rr -> {
+                         JsonNode r = rr.getResource();
+                         //return getMapper().convertValue(this.propertyBag, HashMap.class);
+                         return new SimpleResponse(new SimpleDocument(r.get("id").textValue(),
+                                 objectMapper.convertValue(r, HashMap.class)), rr.getStatusCode(), rr.getRequestCharge(),
+                                 0,//r.getRequestLatency().toMillis(),
+                                 rr.getActivityId());
+                     }));
     }
 
     public Mono<CosmosAsyncItemResponse<PojoizedJson>> createDocument(String collectionName, PojoizedJson doc){
@@ -195,10 +212,15 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
 
         return makeSync(
                 createDocument(collectionName, doc)
-                        .map(r -> new SimpleResponse(new SimpleDocument(r.getProperties().getId(),
-                                r.getProperties().getMap()), r.getStatusCode(), r.getRequestCharge(),
-                                0,//r.getRequestLatency().toMillis(),
-                                r.getActivityId())));
+                        .map(rr -> {
+                            PojoizedJson r = rr.getResource();
+
+                            //return getMapper().convertValue(this.propertyBag, HashMap.class);
+                            return new SimpleResponse(new SimpleDocument(r.getId(),
+                                    objectMapper.convertValue(r, HashMap.class)), rr.getStatusCode(), rr.getRequestCharge(),
+                                    0,//r.getRequestLatency().toMillis(),
+                                    rr.getActivityId());
+                        }));
     }
 
     @Override
@@ -248,6 +270,7 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
         Mono<CosmosDatabaseProperties> dbObs = client
             .queryDatabases(new SqlQuerySpec(CosmosConstants.ROOT_QUERY,
                     new SqlParameterList(new SqlParameter("@id", dbName))), null)
+                .byPage()
             .flatMap(feedResponse -> {
                 if (feedResponse.getResults().isEmpty()) {
                     return Mono.error(new RuntimeException("cannot find database " + dbName));
@@ -269,6 +292,7 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
             .queryContainers(
                     new SqlQuerySpec(CosmosConstants.ROOT_QUERY,
                             new SqlParameterList(new SqlParameter("@id", collectionName))), null)
+                .byPage()
             .flatMap(feedResponse -> {
                 if (feedResponse.getResults().isEmpty()) {
                     return Flux.error(new CosmosDbException("Cannot find collection "
@@ -343,7 +367,7 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
 
         //todo :: errorHandling
         return getCosmosContainerOrLoad(collectionName)
-            .queryItems(CosmosConstants.COUNT_QUERY, options, Long.class).collectList()
+            .queryItems(CosmosConstants.COUNT_QUERY, options, Long.class).byPage().collectList()
             .map(feedResponses -> {
                 return feedResponses.stream().map(fr -> fr.getResults()).flatMap(longs -> longs.stream()).mapToLong(Long::longValue).sum();
             });
@@ -426,6 +450,16 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
             return obs.block();
         } catch(Throwable th){
 
+            CosmosDbException ex =  new CosmosDbException("A cosmosDB exception has occurred!", th.getCause(), false, true);
+            ex.setStackTrace(th.getStackTrace());
+            throw ex;
+        }
+    }
+
+    public static <T> Iterable<FeedResponse<T>> makeSync(CosmosContinuablePagedFlux<T> obs) throws CosmosDbException{
+        try {
+            return obs.byPage().toIterable();
+        } catch(Throwable th){
             CosmosDbException ex =  new CosmosDbException("A cosmosDB exception has occurred!", th.getCause(), false, true);
             ex.setStackTrace(th.getStackTrace());
             throw ex;

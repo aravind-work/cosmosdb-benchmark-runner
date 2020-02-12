@@ -70,7 +70,7 @@ public class ReadBenchmark extends AbstractBenchmark{
         int iterations = 10;
 
         ReadBenchmark bench = new ReadBenchmark();
-        bench.cosmosClientType = "v3";
+        bench.cosmosClientType = "v4";
         bench.setup();
 
         try {

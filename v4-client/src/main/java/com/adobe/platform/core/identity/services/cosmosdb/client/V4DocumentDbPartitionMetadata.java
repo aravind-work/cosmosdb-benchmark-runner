@@ -51,7 +51,7 @@ class V4DocumentDbPartitionMetadata {
   //init
   public void reloadMetadata(AsyncDocumentClient client) {
     ResourceResponse<DocumentCollection> response =
-            client.readCollection(this.collectionLink, new RequestOptions()).blockFirst();
+            client.readCollection(this.collectionLink, new RequestOptions()).block();
     this.partitionKeyDefinition = response.getResource().getPartitionKey();
     this.collectionRoutingMap = this.getCollectionRoutingMap(client, this.collectionLink);
     this.partitionKeyRangeIds = this.getCollectionPartitionKeyRangeIds(this.collectionRoutingMap);
