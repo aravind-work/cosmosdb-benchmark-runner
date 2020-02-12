@@ -18,7 +18,7 @@ public class ReadBenchmark extends AbstractBenchmark{
     private Workload workload;
     private CosmosDbClientType clientType;
 
-    @Param({"sync", "async", "v4"})
+    @Param({"sync", "v2", "v3", "v4"})
     String cosmosClientType;
 
     @Setup(Level.Trial)
@@ -70,7 +70,7 @@ public class ReadBenchmark extends AbstractBenchmark{
         int iterations = 10;
 
         ReadBenchmark bench = new ReadBenchmark();
-        bench.cosmosClientType = "v4";
+        bench.cosmosClientType = "v3";
         bench.setup();
 
         try {
@@ -81,6 +81,7 @@ public class ReadBenchmark extends AbstractBenchmark{
             }
         }
         catch(Throwable th) {
+            th.printStackTrace();
             throw th;
         }
         finally

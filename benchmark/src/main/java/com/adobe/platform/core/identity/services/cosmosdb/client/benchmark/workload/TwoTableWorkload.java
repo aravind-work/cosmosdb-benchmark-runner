@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 import static com.adobe.platform.core.identity.services.datagenerator.impl.TwoTableDataGen.GRAPH_COLL_PROTO_FIELD;
 import static com.adobe.platform.core.identity.services.datagenerator.impl.TwoTableDataGen.ROUTING_COLL_PROTO_FIELD;
-
+//  [1, 2, 3, 5, 8, 13, 25, 50, 75, 100, 125, 150, 175, 200, 250, 300, 400, 500, 600]
 public class TwoTableWorkload extends AbstractWorkload{
     Logger logger = LoggerFactory.getLogger(AbstractWorkload.class.getSimpleName());
 
@@ -73,15 +73,19 @@ public class TwoTableWorkload extends AbstractWorkload{
 
         switch (clientType) {
             case V4:
-                logger.info("Using SYNC client for this workload");
+                logger.info("Using V4 client for this workload");
                 client = new V4AsyncCosmosDbClient(cosmosConfig);
+                break;
+            case V3:
+                logger.info("Using V3 client for this workload");
+                client = new V3AsyncCosmosDbClient(cosmosConfig);
                 break;
             case SYNC:
                 logger.info("Using SYNC client for this workload");
                 client = new SyncCosmosDbClient(cosmosConfig);
                 break;
-            case ASYNC:
-                logger.info("Using SYNC client for this workload");
+            case V2:
+                logger.info("Using V2 client for this workload");
                 client = new AsyncCosmosDbClient(cosmosConfig);
                 break;
             default:

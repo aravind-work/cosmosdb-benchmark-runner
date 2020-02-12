@@ -1,5 +1,5 @@
 package com.adobe.platform.core.identity.services.cosmosdb.client;
 
 public enum CosmosDbClientType {
-    SYNC, ASYNC, V4
+    SYNC, V2, V4, V3
 }
