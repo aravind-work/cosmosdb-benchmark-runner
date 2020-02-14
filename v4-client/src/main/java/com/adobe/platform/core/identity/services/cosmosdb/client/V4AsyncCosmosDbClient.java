@@ -10,7 +10,6 @@ import com.azure.cosmos.FeedResponse;
 import com.azure.cosmos.PartitionKey;
 import com.azure.cosmos.RequestRateTooLargeException;
 import com.azure.cosmos.implementation.HttpConstants;
-import com.azure.cosmos.implementation.Utils;
 import com.azure.cosmos.implementation.query.PartitionedQueryExecutionInfo;
 import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
@@ -22,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.NotImplementedException;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
@@ -33,6 +33,7 @@ import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class V4AsyncCosmosDbClient implements CosmosDbClient {
 
@@ -108,19 +109,16 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
     public SimpleResponse readDocuments(String collectionName, List<String> docIdList, int batchQueryMaxSize)
             throws CosmosDbException {
 
-        final String queryString =  String.format(CosmosConstants.QUERY_STRING_BATCH,
-                                                  CosmosConstants.COSMOS_DEFAULT_COLUMN_KEY, docIdList.stream().map(s -> "\"" + s + "\"").collect(Collectors.joining(",")));
-
-
         FeedOptions options = new FeedOptions();
         options.properties(ImmutableMap.of("queryPlan", queryPlan));
         options.setMaxDegreeOfParallelism(100);
         options.setMaxBufferedItemCount(1000000);
 
-        List<FeedResponse<PojoizedJson>> list = makeSync(getCosmosContainerOrLoad(collectionName).queryItems(queryString, options, PojoizedJson.class).byPage().collectList());
-        List<SimpleDocument> docs = list.stream().flatMap(fr -> fr.getResults().stream()).map(item -> new SimpleDocument(item.getId(), item.getInstance()))
-                .collect(Collectors.toList());
 
+        FeedResponse<JsonNode> results = ItemOperationsBridge.readManyAsync(getCosmosContainerOrLoad(collectionName), docIdList.stream().map(id -> Pair.of(id, new PartitionKey(id))).collect(Collectors.toList()), options, JsonNode.class).block();
+        Stream<SimpleDocument> resultStream = results.getElements().stream().map(r -> objectMapper.convertValue(r, HashMap.class)).map(map -> new SimpleDocument((String) map.get("id"), map));
+
+        List<SimpleDocument> docs = resultStream.collect(Collectors.<SimpleDocument>toList());
         return new SimpleResponse(docs, 200, 0, 0, "");
     }
 

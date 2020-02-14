@@ -76,7 +76,8 @@ public class ReadBenchmark extends AbstractBenchmark{
         try {
             for (int i = 0; i < iterations; i++) {
                 long startTime = System.currentTimeMillis();
-                bench.lookupRoutingSingle();
+//                bench.lookupRoutingSingle();
+                bench.lookupRoutingBatch();
                 logger.info("Latency = {} ms", (System.currentTimeMillis() - startTime));
             }
         }
