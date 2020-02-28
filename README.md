@@ -42,16 +42,10 @@ The following are the workloads that have been modelled
        }
        runList = [                                          // Specify n number of benchmark runs
          {
-           name = "lookup-single-sync"                      // Name for this run
+           name = "lookup-single-v4"                        // Name for this run
            regex = "ReadBenchmark.lookupRoutingSingle"      // Regex to use to pickup benchmark methods
            threads = [1]//[1,50,100, 125]                   // Number of threads to use for benchmark. We do a separate benchmark for each thread in the array.
-           clientType = "sync"                              // Specify whether to use cosmos sync or async SDK.
-         },
-         {
-           name = "lookup-single-async"
-           regex = "ReadBenchmark.lookupRoutingSingle"
-           threads = [1]//[1,50,100,125,250]//[1,10,50,100,500,750,1000]
-           clientType = "async"
+           clientType = "v4"                                // Specify which version of the SDK to use.
          }
        ]
      }
@@ -59,7 +53,7 @@ The following are the workloads that have been modelled
 ```
 
 + To build runnable jar run
-`./gradlew shadowJar -PcosmosAsyncVersion=2.4.3`
+`./gradlew shadowJar`
 + Copy to target machine
 `scp benchmark/build/libs/benchmark-1.2-cosmos-2.4.3-SNAPSHOT-shadow.jar arsriram@52.184.191.216:~/`
 + Modify config after building shadow jar (optional)
@@ -86,7 +80,7 @@ Note that the SuiteRunner runs in it's own separate JVM, the purpose of the Suit
 2. Following instructions in section *Run benchmarks* to start the suite runner. This will start the benchmark JVM (not the suite runner) in debug mode, listening on localhost:5005
 3. Instructions to connect using IDEA Community Edition follows
 - From the top menu-bar *Run* -> *Edit Configuration* -> + icon (top-left) to 'Add New Configuration' -> Select 'Remote' -> Rename your configuration to say 'JMH' -> Select port as 5005 -> Debugger mode = Attach to remote JVM -> Hit OK to save and close
-- Set breakpoints as needed, say inside `com.microsoft.azure.cosmosdb.rx.internal.RxDocumentClientImpl.readDocument`
+- Set breakpoints as needed, say inside `CosmosAsyncContainer#readItem(.)`
 - Select the newly created JMH run configuration from the drop down and hit the debug button. This will start the debug session.
 
 Notes
