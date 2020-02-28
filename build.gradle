@@ -23,6 +23,9 @@ allprojects {
     targetCompatibility = 1.8
 
     repositories {
+        maven {
+          url "https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-java/maven/v1"
+        }
         mavenLocal()
         jcenter()
         mavenCentral()
