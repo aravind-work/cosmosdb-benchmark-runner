@@ -1,48 +1,34 @@
 package com.adobe.platform.core.identity.services.cosmosdb.client;
 
-import com.azure.cosmos.CosmosAsyncClient;
-import com.azure.cosmos.implementation.AsyncDocumentClient;
-import com.azure.cosmos.implementation.DocumentCollection;
-import com.azure.cosmos.implementation.PartitionKeyRange;
-import com.azure.cosmos.implementation.RequestOptions;
-import com.azure.cosmos.implementation.ResourceResponse;
-import com.azure.cosmos.implementation.routing.CollectionRoutingMap;
-import com.azure.cosmos.implementation.routing.IServerIdentity;
-import com.azure.cosmos.implementation.routing.InMemoryCollectionRoutingMap;
-import com.azure.cosmos.implementation.routing.PartitionKeyInternal;
-import com.azure.cosmos.implementation.routing.PartitionKeyInternalHelper;
-import com.azure.cosmos.implementation.routing.Range;
-import com.azure.cosmos.models.FeedOptions;
-import com.azure.cosmos.models.FeedResponse;
-import com.azure.cosmos.models.PartitionKeyDefinition;
+import java.util.*;
+import java.util.stream.Collectors;
+
+
+import com.azure.data.cosmos.CosmosClient;
+import com.azure.data.cosmos.FeedOptions;
+import com.azure.data.cosmos.FeedResponse;
+import com.azure.data.cosmos.PartitionKeyDefinition;
+import com.azure.data.cosmos.internal.*;
+import com.azure.data.cosmos.internal.routing.*;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 
 /**
   * Helper class to retrieve partition metadata for a given collection. This is used for grouping IDs by partition in
   * batch queries
   */
-class V4DocumentDbPartitionMetadata {
-  Logger logger = LoggerFactory.getLogger(V4DocumentDbPartitionMetadata.class.getSimpleName());
+class V3DocumentDbPartitionMetadata {
+  Logger logger = LoggerFactory.getLogger(V3DocumentDbPartitionMetadata.class.getSimpleName());
 
   private String collectionLink;
   private CollectionRoutingMap collectionRoutingMap;
   private List<String> partitionKeyRangeIds;
   private PartitionKeyDefinition partitionKeyDefinition;
 
-  public V4DocumentDbPartitionMetadata(CosmosAsyncClient client, String collectionLink){
+  public V3DocumentDbPartitionMetadata(CosmosClient client, String collectionLink){
     this.collectionLink = collectionLink;
 
     AsyncDocumentClient documentClient = get(AsyncDocumentClient.class, client, "asyncDocumentClient");
@@ -60,7 +46,7 @@ class V4DocumentDbPartitionMetadata {
   //init
   public void reloadMetadata(AsyncDocumentClient client) {
     ResourceResponse<DocumentCollection> response =
-            client.readCollection(this.collectionLink, new RequestOptions()).block();
+            client.readCollection(this.collectionLink, new RequestOptions()).blockFirst();
     this.partitionKeyDefinition = response.getResource().getPartitionKey();
     this.collectionRoutingMap = this.getCollectionRoutingMap(client, this.collectionLink);
     this.partitionKeyRangeIds = this.getCollectionPartitionKeyRangeIds(this.collectionRoutingMap);
@@ -82,7 +68,7 @@ class V4DocumentDbPartitionMetadata {
 
       PartitionKeyInternal partitionKeyValue = PartitionKeyInternal.fromObjectArray(Collections.singletonList(id).toArray(), true);
       String effectivePartitionKey = PartitionKeyInternalHelper.getEffectivePartitionKeyString(partitionKeyValue, partitionKeyDefinition);
-      String partitionRangeId = collectionRoutingMap.getRangeByEffectivePartitionKey(effectivePartitionKey).getId();
+      String partitionRangeId = collectionRoutingMap.getRangeByEffectivePartitionKey(effectivePartitionKey).id();
 
       partitionIdMap.putIfAbsent(partitionRangeId, new HashSet<>(ids.size() / partitionKeyRangeIds.size()));
       partitionIdMap.get(partitionRangeId).add(id);
@@ -96,7 +82,7 @@ class V4DocumentDbPartitionMetadata {
       client.readPartitionKeyRanges(collectionLink, new FeedOptions()).blockFirst();
 
     List<ImmutablePair<PartitionKeyRange, IServerIdentity>> ranges = partitionKeyRanges
-      .getResults().stream()
+      .results().stream()
       .map(r -> new ImmutablePair<PartitionKeyRange, IServerIdentity>(r, new IServerIdentity() {}))
             .collect(Collectors.toList());
 
@@ -112,7 +98,7 @@ class V4DocumentDbPartitionMetadata {
       PartitionKeyInternalHelper.MaximumExclusiveEffectivePartitionKey, true, false);
 
     return collectionRoutingMap.getOverlappingRanges(fullRange).stream()
-            .map(PartitionKeyRange::getId)
+            .map(PartitionKeyRange::id)
             .collect(Collectors.toList());
   }
 }

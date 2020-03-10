@@ -11,21 +11,21 @@ allprojects {
     apply plugin: 'idea'
 
     ext {
-        cosmosV4Version = project.hasProperty('cosmosV4Version') ? project.getProperty('cosmosV4Version') : '4.0.0-preview.2'
+        cosmosV4Version = project.hasProperty('cosmosV4Version') ? project.getProperty('cosmosV4Version') : '4.0.1-beta.1'
         cosmosV3Version = project.hasProperty('cosmosV3Version') ? project.getProperty('cosmosV3Version') : '3.6.0'
         cosmosV2Version = project.hasProperty('cosmosV2Version') ? project.getProperty('cosmosV2Version') : '2.6.5'
     }
 
     group = 'com.adobe.platform.core.identity.services'
-    version = "1.2-cosmos-preview.2"
+    version = "1.2-cosmos-beta.1"
 
     sourceCompatibility = 1.8
     targetCompatibility = 1.8
 
     repositories {
-        maven {
-          url "https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-java/maven/v1"
-        }
+//        maven {
+//            url "https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-java/maven/v1"
+//        }
         mavenLocal()
         jcenter()
         mavenCentral()

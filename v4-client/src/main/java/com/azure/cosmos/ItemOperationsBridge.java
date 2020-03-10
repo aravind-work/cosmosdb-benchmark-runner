@@ -1,6 +1,8 @@
 package com.azure.cosmos;
 
-import com.azure.cosmos.ItemOperations;
+import com.azure.cosmos.models.FeedOptions;
+import com.azure.cosmos.models.FeedResponse;
+import com.azure.cosmos.models.PartitionKey;
 import org.apache.commons.lang3.tuple.Pair;
 import reactor.core.publisher.Mono;
 

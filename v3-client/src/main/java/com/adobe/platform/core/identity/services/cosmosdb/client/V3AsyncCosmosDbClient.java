@@ -1,42 +1,14 @@
 package com.adobe.platform.core.identity.services.cosmosdb.client;
 
 import com.adobe.platform.core.identity.services.cosmosdb.util.CosmosDbException;
-import com.azure.cosmos.ConnectionMode;
-import com.azure.cosmos.ConnectionPolicy;
-import com.azure.cosmos.ConsistencyLevel;
-import com.azure.cosmos.CosmosAsyncClient;
-import com.azure.cosmos.CosmosAsyncContainer;
-import com.azure.cosmos.CosmosClientBuilder;
-import com.azure.cosmos.CosmosClientException;
-import com.azure.cosmos.CosmosPagedFlux;
-import com.azure.cosmos.ItemOperationsBridge;
-import com.azure.cosmos.RequestRateTooLargeException;
-import com.azure.cosmos.implementation.HttpConstants;
-import com.azure.cosmos.implementation.query.PartitionedQueryExecutionInfo;
-import com.azure.cosmos.models.CosmosAsyncItemResponse;
-import com.azure.cosmos.models.CosmosContainerProperties;
-import com.azure.cosmos.models.CosmosDatabaseProperties;
-import com.azure.cosmos.models.CosmosItemRequestOptions;
-import com.azure.cosmos.models.FeedOptions;
-import com.azure.cosmos.models.FeedResponse;
-import com.azure.cosmos.models.IndexingMode;
-import com.azure.cosmos.models.IndexingPolicy;
-import com.azure.cosmos.models.PartitionKey;
-import com.azure.cosmos.models.PartitionKeyDefinition;
-import com.azure.cosmos.models.SqlParameter;
-import com.azure.cosmos.models.SqlParameterList;
-import com.azure.cosmos.models.SqlQuerySpec;
+import com.azure.data.cosmos.*;
+import com.azure.data.cosmos.internal.HttpConstants;
+import com.azure.data.cosmos.internal.query.PartitionedQueryExecutionInfo;
 import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.NotImplementedException;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
@@ -52,30 +24,21 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-public class V4AsyncCosmosDbClient implements CosmosDbClient {
+public class V3AsyncCosmosDbClient implements CosmosDbClient {
 
-    private static final Logger logger = LoggerFactory.getLogger(V4AsyncCosmosDbClient.class.getSimpleName());
+    private static final Logger logger = LoggerFactory.getLogger(V3AsyncCosmosDbClient.class.getSimpleName());
 
     //using for an experiment, todo: remove
     private final ExecutorService executor;
 
     private final CosmosDbConfig cfg;
-    private final CosmosAsyncClient client;
-    private final Map<String, V4DocumentDbPartitionMetadata> partitionMetadataMap = new ConcurrentHashMap<>();
-    private final Map<String, CosmosAsyncContainer> cosmosAsyncContainerMap = new ConcurrentHashMap<>();
+    private final CosmosClient client;
+    private final Map<String, V3DocumentDbPartitionMetadata> partitionMetadataMap = new ConcurrentHashMap<>();
+    private final Map<String, CosmosContainer> CosmosContainerMap = new ConcurrentHashMap<>();
     private final PartitionedQueryExecutionInfo queryPlan;
-    private final ObjectMapper objectMapper = new ObjectMapper()
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-            .configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true)
-            .configure(JsonParser.Feature.ALLOW_TRAILING_COMMA, true)
-            .configure(JsonParser.Feature.STRICT_DUPLICATE_DETECTION, true)
-            .registerModule(new AfterburnerModule());
 
-
-
-    public V4AsyncCosmosDbClient(CosmosDbConfig cfg){
+    public V3AsyncCosmosDbClient(CosmosDbConfig cfg){
 //        com.amazon.corretto.crypto.provider.AmazonCorrettoCryptoProvider.install();
         this.cfg = cfg;
         this.client = createDocumentClient(cfg.serviceEndpoint, cfg.masterKey, cfg.connectionMode, cfg.consistencyLevel,
@@ -94,33 +57,33 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
         // check and update partition metadata map for collection
         if(!partitionMetadataMap.containsKey(collectionName)){
             logger.info("Fetching Partition Metadata for collection {} ...", collectionName);
-            partitionMetadataMap.put(collectionName, new V4DocumentDbPartitionMetadata(client, cfg.getCollectionLink(collectionName)));
+            partitionMetadataMap.put(collectionName, new V3DocumentDbPartitionMetadata(client, cfg.getCollectionLink(collectionName)));
             logger.info("Fetching Partition Metadata for collection {} complete.", collectionName);
         }
 
-        if (!cosmosAsyncContainerMap.containsKey(collectionName)) {
+        if (!CosmosContainerMap.containsKey(collectionName)) {
             logger.info("Fetching Cosmos Container {}", collectionName);
-            CosmosAsyncContainer container = client.getDatabase(cfg.dbName).getContainer(collectionName).read().block().getContainer();
-            cosmosAsyncContainerMap.put(collectionName, container);
+            CosmosContainer container = client.getDatabase(cfg.dbName).getContainer(collectionName).read().block().container();
+            CosmosContainerMap.put(collectionName, container);
         }
     }
 
-    private CosmosAsyncContainer getCosmosContainerOrLoad(String collectionName){
-        CosmosAsyncContainer cosmosAsyncContainer = cosmosAsyncContainerMap.get(collectionName);
-        if (cosmosAsyncContainer != null) {
-            return cosmosAsyncContainer;
+    private CosmosContainer getCosmosContainerOrLoad(String collectionName){
+        CosmosContainer CosmosContainer = CosmosContainerMap.get(collectionName);
+        if (CosmosContainer != null) {
+            return CosmosContainer;
         }
 
         synchronized (this) {
-            cosmosAsyncContainer = cosmosAsyncContainerMap.get(collectionName);
+            CosmosContainer = CosmosContainerMap.get(collectionName);
 
-            if (cosmosAsyncContainer == null) {
+            if (CosmosContainer == null) {
                 logger.info("Fetching Cosmos Container {}", collectionName);
-                cosmosAsyncContainer = client.getDatabase(cfg.dbName).getContainer(collectionName).read().block().getContainer();
-                cosmosAsyncContainerMap.put(collectionName, cosmosAsyncContainer);
+                CosmosContainer = client.getDatabase(cfg.dbName).getContainer(collectionName).read().block().container();
+                CosmosContainerMap.put(collectionName, CosmosContainer);
             }
 
-            return cosmosAsyncContainer;
+            return CosmosContainer;
         }
     }
 
@@ -128,16 +91,20 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
     public SimpleResponse readDocuments(String collectionName, List<String> docIdList, int batchQueryMaxSize)
             throws CosmosDbException {
 
+        final String queryString =  String.format(CosmosConstants.QUERY_STRING_BATCH,
+                                                  CosmosConstants.COSMOS_DEFAULT_COLUMN_KEY, docIdList.stream().map(s -> "\"" + s + "\"").collect(Collectors.joining(",")));
+
+
         FeedOptions options = new FeedOptions();
-        options.setProperties(ImmutableMap.of("queryPlan", queryPlan));
-        options.setMaxDegreeOfParallelism(100);
-        options.setMaxBufferedItemCount(1000000);
+        options.properties(ImmutableMap.of("queryPlan", queryPlan));
+        options.maxDegreeOfParallelism(100);
+        options.maxBufferedItemCount(1000000);
 
+        List<FeedResponse<CosmosItemProperties>> list = makeSync(getCosmosContainerOrLoad(collectionName).queryItems(queryString, options).collectList());
 
-        FeedResponse<JsonNode> results = ItemOperationsBridge.readManyAsync(getCosmosContainerOrLoad(collectionName), docIdList.stream().map(id -> Pair.of(id, new PartitionKey(id))).collect(Collectors.toList()), options, JsonNode.class).block();
-        Stream<SimpleDocument> resultStream = results.getElements().stream().map(r -> objectMapper.convertValue(r, HashMap.class)).map(map -> new SimpleDocument((String) map.get("id"), map));
+        List<SimpleDocument> docs = list.stream().flatMap(fr -> fr.results().stream()).map(properties -> new SimpleDocument(properties.id(), properties.getMap()))
+                .collect(Collectors.toList());
 
-        List<SimpleDocument> docs = resultStream.collect(Collectors.<SimpleDocument>toList());
         return new SimpleResponse(docs, 200, 0, 0, "");
     }
 
@@ -183,16 +150,16 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
     @Override
     public CosmosDbConfig getConfig(){ return this.cfg; }
 
-    public Mono<CosmosAsyncItemResponse<JsonNode>> getDocument(String collectionName, String docId){
-        CosmosAsyncContainer cosmosAsyncContainer = getCosmosContainerOrLoad(collectionName);
+    public Mono<CosmosItemResponse> getDocument(String collectionName, String docId){
+        CosmosContainer CosmosContainer = getCosmosContainerOrLoad(collectionName);
         PartitionKey pk = getPartitionKey(docId);
-        return cosmosAsyncContainer.readItem(docId, pk, JsonNode.class)
+        return CosmosContainer.getItem(docId, pk).read()
                 .publishOn(Schedulers.immediate())
                 .retryWhen(errors -> errors.flatMap(error -> {
                             // For IOExceptions, we  retry
                             if (error.getCause() instanceof RequestRateTooLargeException) {
                                 RequestRateTooLargeException rrEx = (RequestRateTooLargeException) error.getCause();
-                                return Mono.delay(rrEx.getRetryAfterDuration());
+                                return Mono.delay(Duration.ofMillis(rrEx.retryAfterInMilliseconds()));
                             } else {
                                 logger.error("Error in getDocument()", error);
                             }
@@ -207,18 +174,14 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
     public SimpleResponse readDocument(String collectionName, String docId) throws CosmosDbException{
         return makeSync(
                 getDocument(collectionName, docId)
-                     .map(rr -> {
-                         JsonNode r = rr.getItem();
-                         //return getMapper().convertValue(this.propertyBag, HashMap.class);
-                         return new SimpleResponse(new SimpleDocument(r.get("id").textValue(),
-                                 objectMapper.convertValue(r, HashMap.class)), rr.getStatusCode(), rr.getRequestCharge(),
-                                 0,//r.getRequestLatency().toMillis(),
-                                 rr.getActivityId());
-                     }));
+                    .map(r -> new SimpleResponse(new SimpleDocument(r.properties().id(),
+                            r.properties().getMap()), r.statusCode(), r.requestCharge(),
+                            0,//r.getRequestLatency().toMillis(),
+                            r.activityId())));
     }
 
-    public Mono<CosmosAsyncItemResponse<PojoizedJson>> createDocument(String collectionName, PojoizedJson doc){
-        return getCosmosContainerOrLoad(collectionName).createItem(doc, new PartitionKey(doc.getId()), getRequestOptions());
+    public Mono<CosmosItemResponse> createDocument(String collectionName, PojoizedJson doc){
+        return getCosmosContainerOrLoad(collectionName).createItem(doc, getRequestOptions(new PartitionKey(doc.getId())));
     }
 
     @Override
@@ -229,15 +192,10 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
 
         return makeSync(
                 createDocument(collectionName, doc)
-                        .map(rr -> {
-                            PojoizedJson r = rr.getItem();
-
-                            //return getMapper().convertValue(this.propertyBag, HashMap.class);
-                            return new SimpleResponse(new SimpleDocument(r.getId(),
-                                    objectMapper.convertValue(r, HashMap.class)), rr.getStatusCode(), rr.getRequestCharge(),
-                                    0,//r.getRequestLatency().toMillis(),
-                                    rr.getActivityId());
-                        }));
+                        .map(r -> new SimpleResponse(new SimpleDocument(r.properties().id(),
+                                r.properties().getMap()), r.statusCode(), r.requestCharge(),
+                                0,//r.getRequestLatency().toMillis(),
+                                r.activityId())));
     }
 
     @Override
@@ -270,13 +228,13 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
 //        Observable<List<List<String>>> keysByPartitionObs = client
 //            .readPartitionKeyRanges(collectionLink, generateFeedOptions(null))
 //            .retry()
-//            .map(FeedResponse::getResults)
+//            .map(FeedResponse::results)
 //            .flatMapIterable(item -> item)
 //            .flatMap(pkRange ->
 //                client
 //                    .queryDocuments(collectionLink, generateTopNQuery(itemsPerPartition),
 //                        generateFeedOptions(pkRange.getId())))
-//            .map(a -> a.getResults().stream().map(Document::getId).collect(Collectors.toList()))
+//            .map(a -> a.results().stream().map(Document::getId).collect(Collectors.toList()))
 //            .toList();
 //
 //        return keysByPartitionObs;
@@ -287,12 +245,11 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
         Mono<CosmosDatabaseProperties> dbObs = client
             .queryDatabases(new SqlQuerySpec(CosmosConstants.ROOT_QUERY,
                     new SqlParameterList(new SqlParameter("@id", dbName))), null)
-                .byPage()
             .flatMap(feedResponse -> {
-                if (feedResponse.getResults().isEmpty()) {
+                if (feedResponse.results().isEmpty()) {
                     return Mono.error(new RuntimeException("cannot find database " + dbName));
                 } else {
-                    return Mono.just(feedResponse.getResults().get(0));
+                    return Mono.just(feedResponse.results().get(0));
                 }
             }).last();
 
@@ -309,13 +266,12 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
             .queryContainers(
                     new SqlQuerySpec(CosmosConstants.ROOT_QUERY,
                             new SqlParameterList(new SqlParameter("@id", collectionName))), null)
-                .byPage()
             .flatMap(feedResponse -> {
-                if (feedResponse.getResults().isEmpty()) {
+                if (feedResponse.results().isEmpty()) {
                     return Flux.error(new CosmosDbException("Cannot find collection "
                             + collectionName + "in db " + dbName + " !", null));
                 } else {
-                    return Flux.just(feedResponse.getResults().get(0));
+                    return Flux.just(feedResponse.results().get(0));
                 }
             }).last();
 
@@ -329,8 +285,8 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
 
     private static IndexingPolicy getDefaultIndexingPolicy() {
         IndexingPolicy indexingPolicy = new IndexingPolicy();
-        indexingPolicy.setAutomatic(true);
-        indexingPolicy.setIndexingMode(IndexingMode.CONSISTENT);
+        indexingPolicy.automatic(true);
+        indexingPolicy.indexingMode(IndexingMode.CONSISTENT);
 
         return indexingPolicy;
     }
@@ -341,12 +297,12 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
 
         // Set Partition Definition
         PartitionKeyDefinition partitionKeyDefinition = new PartitionKeyDefinition();
-        partitionKeyDefinition.setPaths(Arrays.asList("/" + partitionKey));
+        partitionKeyDefinition.paths(Arrays.asList("/" + partitionKey));
 
         // Set DocumentCollection Properties
         CosmosContainerProperties documentCollection = new CosmosContainerProperties(dbName, collectionName);
-        documentCollection.setPartitionKeyDefinition(partitionKeyDefinition);
-        documentCollection.setIndexingPolicy(getDefaultIndexingPolicy());
+        documentCollection.partitionKeyDefinition(partitionKeyDefinition);
+        documentCollection.indexingPolicy(getDefaultIndexingPolicy());
         //todo :: set indexing policy to exclude paths - needed for write benchmarks
 
         // Set RU limits to createWithRu. Note this controls the partition count.
@@ -370,7 +326,7 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
                              logger.info("Attempting to set RU post collection creation from {} to {} ...", createWithRu,
                                          postCreateRu);
 
-                             return response.getContainer().replaceProvisionedThroughput(postCreateRu).map(x -> true);
+                             return response.container().replaceProvisionedThroughput(postCreateRu).map(x -> true);
                          }
                 );
 
@@ -378,17 +334,17 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
 
     }
 
-    public Mono<Long> getCollectionSize(String collectionName) {
-        FeedOptions options = new FeedOptions();
-        options.setMaxDegreeOfParallelism(-1);
-
-        //todo :: errorHandling
-        return getCosmosContainerOrLoad(collectionName)
-            .queryItems(CosmosConstants.COUNT_QUERY, options, Long.class).byPage().collectList()
-            .map(feedResponses -> {
-                return feedResponses.stream().map(fr -> fr.getResults()).flatMap(longs -> longs.stream()).mapToLong(Long::longValue).sum();
-            });
-    }
+//    public Mono<Long> getCollectionSize(String collectionName) {
+//        FeedOptions options = new FeedOptions();
+//        options.setMaxDegreeOfParallelism(-1);
+//
+//        //todo :: errorHandling
+//        return getCosmosContainerOrLoad(collectionName)
+//            .queryItems(CosmosConstants.COUNT_QUERY, options).collectList()
+//            .map(feedResponses -> {
+//                return feedResponses.stream().map(fr -> fr.results()).flatMap(longs -> longs.stream()).mapToLong(Long::longValue).sum();
+//            });
+//    }
 
     public Mono<Boolean> deleteCollection(String collectionName){
         Mono<Boolean> deleteStatus = client.getDatabase(cfg.dbName).getContainer(collectionName).delete()
@@ -399,7 +355,7 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
             .onErrorResume(e -> {
                 if(e instanceof CosmosClientException) {
                     CosmosClientException dce = (CosmosClientException) e;
-                    if (dce.getStatusCode() == HttpConstants.StatusCodes.NOTFOUND) {
+                    if (dce.statusCode() == HttpConstants.StatusCodes.NOTFOUND) {
                         logger.warn("Collection `{}` doesn't exists. Delete operation skipped !", collectionName);
                         return Mono.just(true);
                     }
@@ -412,13 +368,23 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
         return deleteStatus;
     }
 
-    public CosmosAsyncClient getDocumentClient(){
+    public CosmosClient getDocumentClient(){
         return this.client;
+    }
+
+    private CosmosItemRequestOptions getRequestOptions(PartitionKey partitionKey){
+        CosmosItemRequestOptions options = new CosmosItemRequestOptions();
+        options.consistencyLevel(ConsistencyLevel.valueOf(cfg.consistencyLevel.toUpperCase()));
+        if (partitionKey != null) {
+            options.partitionKey(partitionKey);
+        }
+
+        return options;
     }
 
     private CosmosItemRequestOptions getRequestOptions(){
         CosmosItemRequestOptions options = new CosmosItemRequestOptions();
-        options.setConsistencyLevel(ConsistencyLevel.valueOf(cfg.consistencyLevel.toUpperCase()));
+        options.consistencyLevel(ConsistencyLevel.valueOf(cfg.consistencyLevel.toUpperCase()));
         return options;
     }
 
@@ -428,22 +394,22 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
 
 
     // -------------  Static Helpers
-    private static CosmosAsyncClient createDocumentClient(String serviceEndpoint, String masterKey,
+    private static CosmosClient createDocumentClient(String serviceEndpoint, String masterKey,
                                                           String connectionMode, String consistencyLevel,
                                                           int maxPoolSize, int requestTimeoutInMillis){
 
         ConnectionPolicy connectionPolicy = new ConnectionPolicy();
-        connectionPolicy.setRequestTimeout(Duration.ofMillis(requestTimeoutInMillis));
+        connectionPolicy.requestTimeoutInMillis(requestTimeoutInMillis);
 
-        connectionPolicy.setConnectionMode(ConnectionMode.valueOf(connectionMode.toUpperCase()));
-        connectionPolicy.setMaxPoolSize(maxPoolSize);
+        connectionPolicy.connectionMode(ConnectionMode.valueOf(connectionMode.toUpperCase()));
+        connectionPolicy.maxPoolSize(maxPoolSize);
 
-        return new CosmosClientBuilder()
-                .setEndpoint(serviceEndpoint)
-                .setKey(masterKey)
-                .setConnectionPolicy(connectionPolicy)
-                .setConsistencyLevel(ConsistencyLevel.valueOf(consistencyLevel.toUpperCase()))
-                .buildAsyncClient();
+        return CosmosClient.builder()
+                .endpoint(serviceEndpoint)
+                .key(masterKey)
+                .connectionPolicy(connectionPolicy)
+                .consistencyLevel(ConsistencyLevel.valueOf(consistencyLevel.toUpperCase()))
+                .build();
     }
 
 
@@ -467,16 +433,6 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
             return obs.block();
         } catch(Throwable th){
 
-            CosmosDbException ex =  new CosmosDbException("A cosmosDB exception has occurred!", th.getCause(), false, true);
-            ex.setStackTrace(th.getStackTrace());
-            throw ex;
-        }
-    }
-
-    public static <T> Iterable<FeedResponse<T>> makeSync(CosmosPagedFlux<T> obs) throws CosmosDbException{
-        try {
-            return obs.byPage().toIterable();
-        } catch(Throwable th){
             CosmosDbException ex =  new CosmosDbException("A cosmosDB exception has occurred!", th.getCause(), false, true);
             ex.setStackTrace(th.getStackTrace());
             throw ex;
