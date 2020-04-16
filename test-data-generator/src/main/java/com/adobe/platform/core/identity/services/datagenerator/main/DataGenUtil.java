@@ -12,7 +12,7 @@ public class DataGenUtil {
 
     public static void main(String[] args) {
 
-        System.setProperty("cosmos.directModeProtocol", "Https");
+        System.setProperty("cosmos.directModeProtocol", "Tcp");
         try {
             // Create config objects
             CosmosDbConfig cosmosConfig = new CosmosDbConfig();
