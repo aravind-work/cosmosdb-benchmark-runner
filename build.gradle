@@ -11,9 +11,9 @@ allprojects {
     apply plugin: 'idea'
 
     ext {
-        cosmosV4Version = project.hasProperty('cosmosV4Version') ? project.getProperty('cosmosV4Version') : '4.0.1-beta.1'
-        cosmosV3Version = project.hasProperty('cosmosV3Version') ? project.getProperty('cosmosV3Version') : '3.6.0'
-        cosmosV2Version = project.hasProperty('cosmosV2Version') ? project.getProperty('cosmosV2Version') : '2.6.5'
+        cosmosV4Version = project.hasProperty('cosmosV4Version') ? project.getProperty('cosmosV4Version') : '4.0.1-beta.4'
+        cosmosV3Version = project.hasProperty('cosmosV3Version') ? project.getProperty('cosmosV3Version') : '3.7.4'
+        cosmosV2Version = project.hasProperty('cosmosV2Version') ? project.getProperty('cosmosV2Version') : '2.6.8'
     }
 
     group = 'com.adobe.platform.core.identity.services'
@@ -109,7 +109,7 @@ project(':v3-client') {
 project(':sync-client') {
     dependencies {
         compile project(':client-common')
-        compile "com.microsoft.azure:azure-documentdb:2.4.0"
+        compile "com.microsoft.azure:azure-documentdb:2.5.1"
 //        compile "io.netty:netty-tcnative-boringssl-static:2.0.28.Final"
         compile "io.vavr:vavr:0.9.2"
     }
