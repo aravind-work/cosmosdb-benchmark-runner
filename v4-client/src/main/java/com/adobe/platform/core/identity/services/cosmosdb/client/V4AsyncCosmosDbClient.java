@@ -2,30 +2,33 @@ package com.adobe.platform.core.identity.services.cosmosdb.client;
 
 import com.adobe.platform.core.identity.services.cosmosdb.util.CosmosDbException;
 import com.azure.cosmos.ConnectionMode;
-import com.azure.cosmos.ConnectionPolicy;
 import com.azure.cosmos.ConsistencyLevel;
 import com.azure.cosmos.CosmosAsyncClient;
 import com.azure.cosmos.CosmosAsyncContainer;
 import com.azure.cosmos.CosmosClientBuilder;
-import com.azure.cosmos.CosmosClientException;
-import com.azure.cosmos.CosmosPagedFlux;
+import com.azure.cosmos.CosmosException;
+import com.azure.cosmos.DirectConnectionConfig;
 import com.azure.cosmos.ItemOperationsBridge;
-import com.azure.cosmos.RequestRateTooLargeException;
 import com.azure.cosmos.implementation.HttpConstants;
+import com.azure.cosmos.implementation.RequestRateTooLargeException;
+import com.azure.cosmos.implementation.apachecommons.lang.tuple.Pair;
+import com.azure.cosmos.implementation.guava25.collect.ImmutableMap;
 import com.azure.cosmos.implementation.query.PartitionedQueryExecutionInfo;
-import com.azure.cosmos.models.CosmosAsyncItemResponse;
 import com.azure.cosmos.models.CosmosContainerProperties;
 import com.azure.cosmos.models.CosmosDatabaseProperties;
 import com.azure.cosmos.models.CosmosItemRequestOptions;
-import com.azure.cosmos.models.FeedOptions;
+import com.azure.cosmos.models.CosmosItemResponse;
 import com.azure.cosmos.models.FeedResponse;
 import com.azure.cosmos.models.IndexingMode;
 import com.azure.cosmos.models.IndexingPolicy;
+import com.azure.cosmos.models.ModelBridgeInternal;
 import com.azure.cosmos.models.PartitionKey;
 import com.azure.cosmos.models.PartitionKeyDefinition;
+import com.azure.cosmos.models.QueryRequestOptions;
 import com.azure.cosmos.models.SqlParameter;
-import com.azure.cosmos.models.SqlParameterList;
 import com.azure.cosmos.models.SqlQuerySpec;
+import com.azure.cosmos.models.ThroughputProperties;
+import com.azure.cosmos.util.CosmosPagedFlux;
 import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -34,9 +37,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
-import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.NotImplementedException;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
@@ -73,8 +74,7 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
             .configure(JsonParser.Feature.STRICT_DUPLICATE_DETECTION, true)
             .registerModule(new AfterburnerModule());
 
-
-
+    
     public V4AsyncCosmosDbClient(CosmosDbConfig cfg){
 //        com.amazon.corretto.crypto.provider.AmazonCorrettoCryptoProvider.install();
         this.cfg = cfg;
@@ -100,7 +100,8 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
 
         if (!cosmosAsyncContainerMap.containsKey(collectionName)) {
             logger.info("Fetching Cosmos Container {}", collectionName);
-            CosmosAsyncContainer container = client.getDatabase(cfg.dbName).getContainer(collectionName).read().block().getContainer();
+            CosmosAsyncContainer container = client.getDatabase(cfg.dbName).getContainer(collectionName);
+            container.read().block();
             cosmosAsyncContainerMap.put(collectionName, container);
         }
     }
@@ -116,7 +117,8 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
 
             if (cosmosAsyncContainer == null) {
                 logger.info("Fetching Cosmos Container {}", collectionName);
-                cosmosAsyncContainer = client.getDatabase(cfg.dbName).getContainer(collectionName).read().block().getContainer();
+                cosmosAsyncContainer = client.getDatabase(cfg.dbName).getContainer(collectionName);
+                cosmosAsyncContainer.read().block();
                 cosmosAsyncContainerMap.put(collectionName, cosmosAsyncContainer);
             }
 
@@ -128,8 +130,9 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
     public SimpleResponse readDocuments(String collectionName, List<String> docIdList, int batchQueryMaxSize)
             throws CosmosDbException {
 
-        FeedOptions options = new FeedOptions();
-        options.setProperties(ImmutableMap.of("queryPlan", queryPlan));
+        QueryRequestOptions options = new QueryRequestOptions();
+
+        ModelBridgeInternal.setQueryRequestOptionsProperties(options, ImmutableMap.of("queryPlan", queryPlan));
         options.setMaxDegreeOfParallelism(100);
         options.setMaxBufferedItemCount(1000000);
 
@@ -183,7 +186,7 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
     @Override
     public CosmosDbConfig getConfig(){ return this.cfg; }
 
-    public Mono<CosmosAsyncItemResponse<JsonNode>> getDocument(String collectionName, String docId){
+    public Mono<CosmosItemResponse<JsonNode>> getDocument(String collectionName, String docId){
         CosmosAsyncContainer cosmosAsyncContainer = getCosmosContainerOrLoad(collectionName);
         PartitionKey pk = getPartitionKey(docId);
         return cosmosAsyncContainer.readItem(docId, pk, JsonNode.class)
@@ -217,7 +220,7 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
                      }));
     }
 
-    public Mono<CosmosAsyncItemResponse<PojoizedJson>> createDocument(String collectionName, PojoizedJson doc){
+    public Mono<CosmosItemResponse<PojoizedJson>> createDocument(String collectionName, PojoizedJson doc){
         return getCosmosContainerOrLoad(collectionName).createItem(doc, new PartitionKey(doc.getId()), getRequestOptions());
     }
 
@@ -285,8 +288,7 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
     public Mono<CosmosDatabaseProperties> getDatabase(){ return getDatabase(cfg.dbName);}
     public Mono<CosmosDatabaseProperties> getDatabase(String dbName) {
         Mono<CosmosDatabaseProperties> dbObs = client
-            .queryDatabases(new SqlQuerySpec(CosmosConstants.ROOT_QUERY,
-                    new SqlParameterList(new SqlParameter("@id", dbName))), null)
+            .queryDatabases(new SqlQuerySpec(CosmosConstants.ROOT_QUERY, (new SqlParameter("@id", dbName))), null)
                 .byPage()
             .flatMap(feedResponse -> {
                 if (feedResponse.getResults().isEmpty()) {
@@ -307,8 +309,7 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
         //todo :: errorHandling
         Mono<CosmosContainerProperties> docCollObs = client.getDatabase(dbName)
             .queryContainers(
-                    new SqlQuerySpec(CosmosConstants.ROOT_QUERY,
-                            new SqlParameterList(new SqlParameter("@id", collectionName))), null)
+                    new SqlQuerySpec(CosmosConstants.ROOT_QUERY, new SqlParameter("@id", collectionName)), null)
                 .byPage()
             .flatMap(feedResponse -> {
                 if (feedResponse.getResults().isEmpty()) {
@@ -353,7 +354,7 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
 
         // Build the request
         Mono<Boolean> createStatus = client.getDatabase(dbName)
-                .createContainer(documentCollection, createWithRu)
+                .createContainer(documentCollection, ThroughputProperties.createManualThroughput(createWithRu))
                 .flatMap(response -> {
                              // Set the RU limits to postCreateRu.
 //                if(response ==null && response.getResource() == null && response.getResource().getResourceId() == null){
@@ -370,7 +371,11 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
                              logger.info("Attempting to set RU post collection creation from {} to {} ...", createWithRu,
                                          postCreateRu);
 
-                             return response.getContainer().replaceProvisionedThroughput(postCreateRu).map(x -> true);
+
+                             return client.getDatabase(dbName).getContainer(documentCollection.getId())
+                                    .replaceThroughput(ThroughputProperties.createManualThroughput(postCreateRu))
+                                    .map(x -> true);
+
                          }
                 );
 
@@ -379,7 +384,7 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
     }
 
     public Mono<Long> getCollectionSize(String collectionName) {
-        FeedOptions options = new FeedOptions();
+        QueryRequestOptions options = new QueryRequestOptions();
         options.setMaxDegreeOfParallelism(-1);
 
         //todo :: errorHandling
@@ -397,8 +402,8 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
                 return true;
             })
             .onErrorResume(e -> {
-                if(e instanceof CosmosClientException) {
-                    CosmosClientException dce = (CosmosClientException) e;
+                if(e instanceof CosmosException) {
+                    CosmosException dce = (CosmosException) e;
                     if (dce.getStatusCode() == HttpConstants.StatusCodes.NOTFOUND) {
                         logger.warn("Collection `{}` doesn't exists. Delete operation skipped !", collectionName);
                         return Mono.just(true);
@@ -418,7 +423,8 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
 
     private CosmosItemRequestOptions getRequestOptions(){
         CosmosItemRequestOptions options = new CosmosItemRequestOptions();
-        options.setConsistencyLevel(ConsistencyLevel.valueOf(cfg.consistencyLevel.toUpperCase()));
+        // TODO: dont' support
+         //options.setConsistencyLevel(ConsistencyLevel.valueOf(cfg.consistencyLevel.toUpperCase()));
         return options;
     }
 
@@ -432,22 +438,28 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
                                                           String connectionMode, String consistencyLevel,
                                                           int maxPoolSize, int requestTimeoutInMillis){
 
-        ConnectionPolicy connectionPolicy = new ConnectionPolicy();
-        connectionPolicy.setRequestTimeout(Duration.ofMillis(requestTimeoutInMillis));
 
-        connectionPolicy.setConnectionMode(ConnectionMode.valueOf(connectionMode.toUpperCase()));
-        connectionPolicy.setMaxPoolSize(maxPoolSize);
+        ConnectionMode mode = ConnectionMode.valueOf(connectionMode.toUpperCase());
+
+        if (mode != ConnectionMode.DIRECT) {
+            throw new NotImplementedException(connectionMode);
+        }
+
+        DirectConnectionConfig config = DirectConnectionConfig.getDefaultConfig();
+//        config.setRequestTimeout(Duration.ofMillis(requestTimeoutInMillis));
+
+//        connectionPolicy.setMaxPoolSize(maxPoolSize);
 
         return new CosmosClientBuilder()
-                .setEndpoint(serviceEndpoint)
-                .setKey(masterKey)
-                .setConnectionPolicy(connectionPolicy)
-                .setConsistencyLevel(ConsistencyLevel.valueOf(consistencyLevel.toUpperCase()))
+                .endpoint(serviceEndpoint)
+                .key(masterKey)
+                .directMode(config)
+                .consistencyLevel(ConsistencyLevel.valueOf(consistencyLevel.toUpperCase()))
                 .buildAsyncClient();
     }
 
 
-    private static FeedOptions generateFeedOptions(String partitionKey) {
+    private static QueryRequestOptions generateFeedOptions(String partitionKey) {
         throw new NotImplementedException("");
 //        FeedOptions feedOptions = new FeedOptions();
 //        if(partitionKey != null) {

@@ -88,6 +88,8 @@ project(':async-client') {
 
 project(':v4-client') {
     dependencies {
+        compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.10'
+
         compile project(':client-common')
         compile "com.azure:azure-cosmos:${cosmosV4Version}"
 //        compile "io.netty:netty-tcnative-boringssl-static:2.0.28.Final"
