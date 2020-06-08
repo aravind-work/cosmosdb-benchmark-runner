@@ -8,6 +8,7 @@ import com.azure.cosmos.CosmosAsyncContainer;
 import com.azure.cosmos.CosmosClientBuilder;
 import com.azure.cosmos.CosmosException;
 import com.azure.cosmos.DirectConnectionConfig;
+import com.azure.cosmos.GatewayConnectionConfig;
 import com.azure.cosmos.ItemOperationsBridge;
 import com.azure.cosmos.implementation.HttpConstants;
 import com.azure.cosmos.implementation.RequestRateTooLargeException;
@@ -44,7 +45,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -438,26 +438,23 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
                                                           String connectionMode, String consistencyLevel,
                                                           int maxPoolSize, int requestTimeoutInMillis){
 
-
-        ConnectionMode mode = ConnectionMode.valueOf(connectionMode.toUpperCase());
-
-        if (mode != ConnectionMode.DIRECT) {
-            throw new NotImplementedException(connectionMode);
-        }
-
-        DirectConnectionConfig config = DirectConnectionConfig.getDefaultConfig();
-//        config.setRequestTimeout(Duration.ofMillis(requestTimeoutInMillis));
-
-//        connectionPolicy.setMaxPoolSize(maxPoolSize);
-
-        return new CosmosClientBuilder()
+        CosmosClientBuilder clientBuilder = new CosmosClientBuilder()
                 .endpoint(serviceEndpoint)
                 .key(masterKey)
-                .directMode(config)
-                .consistencyLevel(ConsistencyLevel.valueOf(consistencyLevel.toUpperCase()))
-                .buildAsyncClient();
-    }
+                .consistencyLevel(ConsistencyLevel.valueOf(consistencyLevel.toUpperCase()));
 
+        if (ConnectionMode.valueOf(connectionMode.toUpperCase()) == ConnectionMode.DIRECT) {
+            DirectConnectionConfig directConnectionConfig = DirectConnectionConfig.getDefaultConfig();
+
+            clientBuilder.directMode(directConnectionConfig);
+        } else {
+            GatewayConnectionConfig gatewayConnectionConfig = GatewayConnectionConfig.getDefaultConfig();
+            gatewayConnectionConfig.setMaxConnectionPoolSize(maxPoolSize);
+            clientBuilder.gatewayMode(gatewayConnectionConfig);
+        }
+
+        return clientBuilder.buildAsyncClient();
+    }
 
     private static QueryRequestOptions generateFeedOptions(String partitionKey) {
         throw new NotImplementedException("");
