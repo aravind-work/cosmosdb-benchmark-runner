@@ -443,11 +443,14 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
                 .key(masterKey)
                 .consistencyLevel(ConsistencyLevel.valueOf(consistencyLevel.toUpperCase()));
 
+        logger.info("ConnectionMode {}", connectionMode);
         if (ConnectionMode.valueOf(connectionMode.toUpperCase()) == ConnectionMode.DIRECT) {
+            logger.info("setting ConnectionMode direct {} in clientBuilder", connectionMode);
             DirectConnectionConfig directConnectionConfig = DirectConnectionConfig.getDefaultConfig();
 
             clientBuilder.directMode(directConnectionConfig);
         } else {
+            logger.info("setting ConnectionMode gateway {} in clientBuilder", connectionMode);
             GatewayConnectionConfig gatewayConnectionConfig = GatewayConnectionConfig.getDefaultConfig();
             gatewayConnectionConfig.setMaxConnectionPoolSize(maxPoolSize);
             clientBuilder.gatewayMode(gatewayConnectionConfig);
