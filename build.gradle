@@ -11,7 +11,7 @@ allprojects {
     apply plugin: 'idea'
 
     ext {
-        cosmosV4Version = project.hasProperty('cosmosV4Version') ? project.getProperty('cosmosV4Version') : '4.0.1-beta.4'
+        cosmosV4Version = project.hasProperty('cosmosV4Version') ? project.getProperty('cosmosV4Version') : '4.3.0'
         cosmosV3Version = project.hasProperty('cosmosV3Version') ? project.getProperty('cosmosV3Version') : '3.7.4'
         cosmosV2Version = project.hasProperty('cosmosV2Version') ? project.getProperty('cosmosV2Version') : '2.6.8'
     }

@@ -13,10 +13,10 @@ import com.azure.cosmos.implementation.routing.InMemoryCollectionRoutingMap;
 import com.azure.cosmos.implementation.routing.PartitionKeyInternal;
 import com.azure.cosmos.implementation.routing.PartitionKeyInternalHelper;
 import com.azure.cosmos.implementation.routing.Range;
-import com.azure.cosmos.models.QueryRequestOptions;
+import com.azure.cosmos.models.CosmosQueryRequestOptions;
 import com.azure.cosmos.models.FeedResponse;
 import com.azure.cosmos.models.PartitionKeyDefinition;
-import com.azure.cosmos.models.QueryRequestOptions;
+import com.azure.cosmos.models.CosmosQueryRequestOptions;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -94,7 +94,7 @@ class V4DocumentDbPartitionMetadata {
 
   private CollectionRoutingMap getCollectionRoutingMap(AsyncDocumentClient client,String collectionLink){
     FeedResponse<PartitionKeyRange> partitionKeyRanges=
-      client.readPartitionKeyRanges(collectionLink, new QueryRequestOptions()).blockFirst();
+      client.readPartitionKeyRanges(collectionLink, new CosmosQueryRequestOptions()).blockFirst();
 
     List<ImmutablePair<PartitionKeyRange, IServerIdentity>> ranges = partitionKeyRanges
       .getResults().stream()

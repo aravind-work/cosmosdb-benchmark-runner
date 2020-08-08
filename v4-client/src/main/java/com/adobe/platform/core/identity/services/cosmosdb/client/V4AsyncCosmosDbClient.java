@@ -25,7 +25,7 @@ import com.azure.cosmos.models.IndexingPolicy;
 import com.azure.cosmos.models.ModelBridgeInternal;
 import com.azure.cosmos.models.PartitionKey;
 import com.azure.cosmos.models.PartitionKeyDefinition;
-import com.azure.cosmos.models.QueryRequestOptions;
+import com.azure.cosmos.models.CosmosQueryRequestOptions;
 import com.azure.cosmos.models.SqlParameter;
 import com.azure.cosmos.models.SqlQuerySpec;
 import com.azure.cosmos.models.ThroughputProperties;
@@ -130,9 +130,10 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
     public SimpleResponse readDocuments(String collectionName, List<String> docIdList, int batchQueryMaxSize)
             throws CosmosDbException {
 
-        QueryRequestOptions options = new QueryRequestOptions();
+        CosmosQueryRequestOptions options = new CosmosQueryRequestOptions();
 
-        ModelBridgeInternal.setQueryRequestOptionsProperties(options, ImmutableMap.of("queryPlan", queryPlan));
+        // TODO: 20200807 moderakh bring this back
+//        ModelBridgeInternal.setCosmosQueryRequestOptionsProperties(options, ImmutableMap.of("queryPlan", queryPlan));
         options.setMaxDegreeOfParallelism(100);
         options.setMaxBufferedItemCount(1000000);
 
@@ -384,7 +385,7 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
     }
 
     public Mono<Long> getCollectionSize(String collectionName) {
-        QueryRequestOptions options = new QueryRequestOptions();
+        CosmosQueryRequestOptions options = new CosmosQueryRequestOptions();
         options.setMaxDegreeOfParallelism(-1);
 
         //todo :: errorHandling
@@ -459,7 +460,7 @@ public class V4AsyncCosmosDbClient implements CosmosDbClient {
         return clientBuilder.buildAsyncClient();
     }
 
-    private static QueryRequestOptions generateFeedOptions(String partitionKey) {
+    private static CosmosQueryRequestOptions generateFeedOptions(String partitionKey) {
         throw new NotImplementedException("");
 //        FeedOptions feedOptions = new FeedOptions();
 //        if(partitionKey != null) {
